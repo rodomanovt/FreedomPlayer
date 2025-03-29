@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/musicPlayer"
+            android:title="@string/playerText"
+            android:icon="@drawable/baseline_music_note_24"/>
+        <item
+            android:id="@+id/downloader"
+            android:title="@string/downloaderText"
+            android:icon="@drawable/baseline_file_download_24"/>
+        <item
+            android:id="@+id/settings"
+            android:title="@string/settingsText"
+            android:icon="@drawable/baseline_settings_24"/>
+    </group>
+</menu>

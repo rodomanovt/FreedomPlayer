@@ -1,4 +1,4 @@
-package com.rodomanovt.freedomplayer
+package com.rodomanovt.freedomplayer.activities
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity

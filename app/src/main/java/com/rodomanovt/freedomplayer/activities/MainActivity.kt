@@ -3,7 +3,6 @@ package com.rodomanovt.freedomplayer.activities
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import com.rodomanovt.freedomplayer.R
 
 class MainActivity : AppCompatActivity() {
 

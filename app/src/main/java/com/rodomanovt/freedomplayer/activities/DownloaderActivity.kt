@@ -21,10 +21,10 @@ class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         binding = ActivityDownloaderBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        binding.navView.setNavigationItemSelectedListener(this)
     }
 
     override fun onNavigationItemSelected(item: MenuItem):Boolean {
-        Toast.makeText(this, "1", Toast.LENGTH_SHORT).show()
 
         var activityLaunchIntent: Intent? = null
 
@@ -32,24 +32,21 @@ class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         if (id == R.id.musicPlayer)
         {
             activityLaunchIntent = Intent(this, PlayerActivity::class.java)
-            Toast.makeText(this, "player", Toast.LENGTH_SHORT).show()
         }
         else if (id == R.id.downloader)
         {
             // current
-            Toast.makeText(this, "dl", Toast.LENGTH_SHORT).show()
-
         }
         else if (id == R.id.settings)
         {
-            Toast.makeText(this, "sett", Toast.LENGTH_SHORT).show()
             activityLaunchIntent = Intent(this, SettingsActivity::class.java)
         }
         val drawer = binding.drawerLayout
-        drawer.bringToFront()
         drawer.closeDrawer(GravityCompat.START)
 
-        startActivity(activityLaunchIntent)
+        if (activityLaunchIntent != null) {
+            startActivity(activityLaunchIntent)
+        }
 
         return true
     }

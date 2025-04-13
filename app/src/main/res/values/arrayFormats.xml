@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="fileFormatSettingSpinner">
+        <item>@string/formatMP3</item>
+        <item>@string/formatOpus</item>
+    </string-array>
+</resources>

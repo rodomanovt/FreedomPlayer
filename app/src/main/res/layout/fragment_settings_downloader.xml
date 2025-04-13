@@ -11,11 +11,266 @@
         android:layout_height="match_parent"
         tools:context=".fragments.SettingsDownloaderFragment">
 
-        <TextView
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="downloader settings"
-            android:gravity="center" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/downloaderOptions"
+                android:gravity="center"
+                android:padding="10dp"
+                android:textSize="18sp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingAutoDownload"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/settingAutoDownloadSwitch"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingMobileNetworkDownload"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/settingMobileNetworkDownloadSwitch"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/settingAutoDownloadStartTime"
+                        android:gravity="start"
+                        android:padding="5dp"
+                        android:textSize="16sp"/>
+
+                    <TextView
+                        android:id="@+id/settingAutoDownloadStartTimeText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/undefined"
+                        android:gravity="start"
+                        android:paddingStart="5dp"
+                        android:paddingEnd="5dp"
+                        android:textSize="12sp"/>
+
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/settingAutoDownloadStartTimeButton"
+                    android:text="@string/change"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingDownloadPath"
+                    android:gravity="start"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <TextView
+                    android:id="@+id/settingDownloadPathText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/undefined"
+                    android:gravity="start"
+                    android:paddingStart="5dp"
+                    android:paddingEnd="5dp"
+                    android:textSize="12sp"/>
+
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/settingDownloadPathButton"
+                    android:text="@string/change"
+                    android:layout_width="100dp"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/fileFormatOptions"
+                android:gravity="center"
+                android:padding="10dp"
+                android:textSize="18sp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingFileFormat"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/settingFileFormatSpinner"
+                    android:layout_width="200dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="end"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingBitrate"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/settingBitrateSpinner"
+                    android:layout_width="200dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="end"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingSmartNaming"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/settingSmartNaming"
+                    android:layout_width="220dp"
+                    android:layout_height="wrap_content"
+                    android:padding="5dp"
+                    android:layout_gravity="center"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingFileNameTemplate"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/settingFileNameTemplateEditText"
+                android:text="@string/defaultFileNameTemplate"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:textSize="14sp"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"/>
+
+
+        </LinearLayout>
 
     </FrameLayout>
 </layout>

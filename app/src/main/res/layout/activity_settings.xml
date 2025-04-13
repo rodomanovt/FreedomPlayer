@@ -6,21 +6,11 @@
     <data>
 
     </data>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical">
-
-        <fragment
-            android:id="@+id/settings_nav_host_fragment_container"
-            android:name="androidx.navigation.fragment.NavHostFragment"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:defaultNavHost="true"
-            app:navGraph="@navigation/settings_nav_graph"/>
-
+            android:fitsSystemWindows="true"
+            tools:context=".activities.SettingsActivity">
 
             <androidx.drawerlayout.widget.DrawerLayout
                 android:id="@+id/drawer_layout"
@@ -29,10 +19,13 @@
                 android:fitsSystemWindows="true"
                 tools:openDrawer="start">
 
-                <include
-                    layout="@layout/drawer_dark_bar"
+                <fragment
+                    android:id="@+id/settings_nav_host_fragment_container"
+                    android:name="androidx.navigation.fragment.NavHostFragment"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent" />
+                    android:layout_height="match_parent"
+                    app:defaultNavHost="true"
+                    app:navGraph="@navigation/settings_nav_graph"/>
 
                 <com.google.android.material.navigation.NavigationView
                     android:id="@+id/nav_view"
@@ -43,11 +36,12 @@
                     app:headerLayout="@layout/drawer_header_main"
                     app:menu="@menu/drawer_menu"/>
 
-        </androidx.drawerlayout.widget.DrawerLayout>
+            </androidx.drawerlayout.widget.DrawerLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
 
 
 
-    </LinearLayout>
 
 </layout>

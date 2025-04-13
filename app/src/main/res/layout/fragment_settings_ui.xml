@@ -11,11 +11,93 @@
         android:layout_height="match_parent"
         tools:context=".fragments.SettingsUIFragment">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:text="ui settings"
-            android:gravity="center" />
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/UIOptions"
+                android:gravity="center"
+                android:padding="10dp"
+                android:textSize="18sp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingTheme"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/settingThemeSpinner"
+                    android:layout_width="200dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="end"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingLanguage"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/settingLanguageSpinner"
+                    android:layout_width="200dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="end"/>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="5dp"
+                android:gravity="center">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settingDefaultActivity"
+                    android:gravity="start"
+                    android:layout_weight="1"
+                    android:padding="5dp"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/settingDefaultActivitySpinner"
+                    android:layout_width="200dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="end"/>
+
+            </LinearLayout>
+
+
+        </LinearLayout>
 
     </FrameLayout>
 </layout>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="defaultActivitySettingSpinner">
+        <item>@string/activityPlayer</item>
+        <item>@string/activityDownloader</item>
+    </string-array>
+</resources>

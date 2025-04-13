@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="bitrateSettingSpinner">
+        <item>@string/bitrateMax</item>
+        <item>@string/bitrate192</item>
+        <item>@string/bitrate128</item>
+        <item>@string/bitrate64</item>
+        <item>@string/bitrate32</item>
+    </string-array>
+</resources>

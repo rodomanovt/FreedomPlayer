@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">FreedomPlayer</string>
+    <string name="FreedomPlayer">FreedomPlayer</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>
     <string name="second_fragment_label">Second Fragment</string>
@@ -7,10 +8,57 @@
     <string name="previous">Previous</string>
     <string name="playerText">Music player</string>
     <string name="downloaderText">Music downloader</string>
+
+    <!-- Spinners content-->
+    <string name="themeSystem">System</string>
+    <string name="themeLight">Light</string>
+    <string name="themeDark">Dark</string>
+
+    <string name="langRu">Русский</string>
+    <string name="langEn">English</string>
+
+    <string name="activityPlayer">Music player</string>
+    <string name="activityDownloader">Music downloader</string>
+
+    <string name="formatMP3">.mp3</string>
+    <string name="formatOpus">.opus</string>
+
+    <string name="bitrateMax">No limit</string>
+    <string name="bitrate192">192 Kbps</string>
+    <string name="bitrate128">128 Kbps</string>
+    <string name="bitrate64">64 Kbps</string>
+    <string name="bitrate32">32 Kbps</string>
+
+    <!-- Settings-->
+    <string name="change">Change</string>
+    <string name="undefined">Undefined</string>
+
     <string name="settingsText">Settings</string>
-    <string name="FreedomPlayer">FreedomPlayer</string>
     <string name="downloaderOptions">Downloader options</string>
+    <string name="fileFormatOptions">File format</string>
     <string name="UIOptions">User interface</string>
+    <string name="settingTheme">Theme</string>
+    <string name="settingLanguage">Language</string>
+    <string name="settingDefaultActivity">Default page</string>
+
+    <string name="settingAutoDownload">Auto download new tracks</string>
+    <string name="settingMobileNetworkDownload">Download with mobile network</string>
+    <string name="settingAutoDownloadStartTime">Auto download start time</string>
+    <string name="settingDownloadPath">Download path</string>
+    <string name="settingFileFormat">File format</string>
+    <string name="settingBitrate">Bitrate</string>
+    <string name="settingFileNameTemplate">File name template</string>
+    <string name="settingSmartNaming">Use smart file naming (for YT music videos)</string>
+
+    <string name="defaultFileNameTemplate">$Artist$ - $Track$</string>
+
+
+
+
+
+
+
+
 
 
     <string name="hello_blank_fragment">Hello blank fragment</string>

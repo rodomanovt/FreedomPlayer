@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="themesSettingSpinner">
+        <item>@string/themeSystem</item>
+        <item>@string/themeLight</item>
+        <item>@string/themeDark</item>
+    </string-array>
+</resources>

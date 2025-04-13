@@ -22,17 +22,18 @@ class SettingsActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        binding.navView.setNavigationItemSelectedListener(this)
-
         val navController = Navigation.findNavController(this, R.id.settings_nav_host_fragment_container)
         NavigationUI.setupWithNavController(binding.navView, navController)
+
+        binding.navView.setNavigationItemSelectedListener(this)
     }
 
     override fun onNavigationItemSelected(item: MenuItem):Boolean {
+        Toast.makeText(this, "click", Toast.LENGTH_SHORT).show()
 
         var activityLaunchIntent: Intent? = null
 
-        val id = item.getItemId()
+        val id = item.itemId
         if (id == R.id.musicPlayer)
         {
             activityLaunchIntent = Intent(this, PlayerActivity::class.java)

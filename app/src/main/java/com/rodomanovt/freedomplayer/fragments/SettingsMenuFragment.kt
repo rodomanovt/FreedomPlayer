@@ -9,16 +9,10 @@ import androidx.databinding.DataBindingUtil
 import androidx.navigation.findNavController
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.FragmentSettingsMenuBinding
-import com.rodomanovt.freedomplayer.databinding.FragmentSettingsPlayerBinding
 
 class SettingsMenuFragment : Fragment() {
 
     private lateinit var binding: FragmentSettingsMenuBinding
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,

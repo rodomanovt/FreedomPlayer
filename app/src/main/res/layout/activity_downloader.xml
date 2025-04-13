@@ -31,8 +31,9 @@
             android:fitsSystemWindows="true"
             tools:openDrawer="start">
 
+            <!--TODO: replace layout with nav host fragment-->
             <include
-                layout="@layout/drawer_dark_bar"
+                layout="@layout/empty_fragment"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 

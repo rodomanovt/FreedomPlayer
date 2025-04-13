@@ -13,7 +13,9 @@ class MainActivity : AppCompatActivity() {
 
         activityLaunchIntent = Intent(this, DownloaderActivity::class.java)
 
-        startActivity(activityLaunchIntent)
+        while (true) {
+            startActivity(activityLaunchIntent)
+        }
 
         // start DownloaderActivity or SettingsActivity according to default startup page setting
     }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/downloader_nav_graph"
+    app:startDestination="@id/downloaderMainFragment">
+
+    <activity
+        android:id="@+id/downloaderActivity"
+        android:name="com.rodomanovt.freedomplayer.activities.DownloaderActivity"
+        android:label="DownloaderActivity" />
+    <fragment
+        android:id="@+id/downloaderMainFragment"
+        android:name="com.rodomanovt.freedomplayer.fragments.DownloaderMainFragment"
+        android:label="DownloaderMainFragment" >
+        <action
+            android:id="@+id/action_downloaderMainFragment_to_downloaderActivity"
+            app:destination="@id/downloaderActivity" />
+    </fragment>
+</navigation>

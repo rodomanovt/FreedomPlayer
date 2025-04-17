@@ -1,10 +1,12 @@
 package com.rodomanovt.freedomplayer.fragments
 
 import android.app.Activity.RESULT_OK
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.net.Uri
 import androidx.fragment.app.viewModels
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
@@ -14,9 +16,12 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.core.widget.doOnTextChanged
 import androidx.databinding.DataBindingUtil
+import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.FragmentSettingsDownloaderBinding
 import com.rodomanovt.freedomplayer.viewmodels.SettingsDownloaderViewModel
+import java.util.Calendar
+
 
 class SettingsDownloaderFragment : Fragment() {
 
@@ -28,7 +33,8 @@ class SettingsDownloaderFragment : Fragment() {
     private val viewModel: SettingsDownloaderViewModel by viewModels()
     private lateinit var binding: FragmentSettingsDownloaderBinding
 
-    private lateinit var directoryUri: Uri
+    private var directoryPathString: String = "Undefined"
+    private var selectedTimeString: String = "Undefined"
 
 
     override fun onCreateView(
@@ -64,21 +70,39 @@ class SettingsDownloaderFragment : Fragment() {
 
 
         binding.settingAutoDownloadStartTimeButton.setOnClickListener {
-            Toast.makeText(requireContext(), "changed time", Toast.LENGTH_SHORT).show()
+            val calendar = Calendar.getInstance()
+            val hour = calendar.get(Calendar.HOUR_OF_DAY)
+            val minute = calendar.get(Calendar.MINUTE)
+
+            val timePickerDialog = TimePickerDialog(
+                requireContext(),
+                { _, selectedHour, selectedMinute ->
+                    val formattedTime = String.format("%02d:%02d", selectedHour, selectedMinute)
+
+                    selectedTimeString = formattedTime
+
+                    binding.settingAutoDownloadStartTimeText.text = formattedTime
+                    Toast.makeText(requireContext(), "changed time to ${selectedTimeString}", Toast.LENGTH_SHORT).show()
+                    // TODO: сохранить настроку в бд (вынести во viewmodel)
+                    // TODO: реализовать функционал (вынести во viewmodel)
+                },
+                hour,
+                minute,
+                true // 24-часовой формат (true) или 12-часовой (false)
+            )
+
+            timePickerDialog.show()
         }
+
 
 
         binding.settingDownloadPathButton.setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             startActivityForResult(intent, REQUEST_CODE_OPEN_DIRECTORY)
+            // sets textView string and shot toast in onActivityResult
+            // TODO: сохранить настроку в бд (вынести во viewmodel)
+            // TODO: реализовать функционал (вынести во viewmodel)
 
-            if (directoryUri != null) {
-//                requireContext().contentResolver.takePersistableUriPermission(
-//                    directoryUri,
-//                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-//                )
-                Toast.makeText(requireContext(), "changed  to ${directoryUri}", Toast.LENGTH_SHORT).show()
-            }
         }
 
 
@@ -135,13 +159,16 @@ class SettingsDownloaderFragment : Fragment() {
         if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == RESULT_OK) {
             data?.data?.let { uri ->
                 // Получаем URI выбранной директории
-                directoryUri = uri
 
                 // Сохраняем URI для дальнейшего использования
                 requireContext().contentResolver.takePersistableUriPermission(
-                    directoryUri,
+                    uri,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
+
+                directoryPathString = uri.path ?: "Undefined"
+                Toast.makeText(requireContext(), "changed  to ${directoryPathString}", Toast.LENGTH_SHORT).show()
+                binding.settingDownloadPathText.text = directoryPathString
             }
         }
     }

@@ -2,6 +2,7 @@ package com.rodomanovt.freedomplayer.repos
 
 import android.content.ContentUris
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.provider.DocumentsContract
 import android.provider.MediaStore
@@ -50,113 +51,53 @@ class MusicRepository(private val context: Context) {
         return playlists
     }
 
-    // Получение песен из папки
+
     private fun getSongsFromFolder(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
-        //val folder = DocumentFile.fromTreeUri(context, folder.uri)
-
-//        val testFolder = DocumentFile.fromTreeUri(context, Uri.parse(folder?.uri.toString()))
-//        testFolder?.listFiles()?.forEach { file ->
-//            Log.d("TEST", "File: ${file.name}, URI: ${file.uri}, Type: ${file.type}")
-//        }
+        val retriever = MediaMetadataRetriever()
 
         folder.listFiles().forEach { file ->
-            if (file.type == "audio/mpeg" ) {
-                songs.add(
-                    Song(
-                        id = file.uri.hashCode().toLong(),
-                        title = file.name ?: "Unknown",
-                        artist = "Unknown",
-                        duration = 0,
-                        path = file.uri.toString()
-                    )
-                )
+            if (file.isFile && (file.type == "audio/mpeg" || file.name?.endsWith(".mp3", ignoreCase = true) == true)) {
+                try {
+                    // Открываем файл через FileDescriptor
+                    val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
+                    pfd?.use { parcelFd ->
+                        retriever.setDataSource(parcelFd.fileDescriptor)
+
+                        // Извлекаем метаданные
+                        val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                            ?: file.name?.substringBeforeLast(".")
+                            ?: "Unknown"
+
+                        val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                            ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
+                            ?: "Unknown"
+
+                        val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                            ?.toLongOrNull()
+                            ?: 0L
+
+                        songs.add(
+                            Song(
+                                id = file.uri.hashCode().toLong(),
+                                title = title,
+                                artist = artist,
+                                duration = duration,
+                                path = file.uri.toString()
+                            )
+                        )
+
+                        Log.d("MusicRepository", "Added song: $title - $artist ($duration ms)")
+                    }
+                } catch (e: Exception) {
+                    Log.e("MusicRepository", "Error reading metadata for ${file.name}", e)
+                }
             }
         }
+
+        retriever.release()
         return songs
     }
-//
-//    fun getSongsFromFolder(context: Context, folderUri: Uri): List<Song> {
-//        val songs = mutableListOf<Song>()
-//
-//        // 1. Получаем DocumentFile для папки
-//        val folder = DocumentFile.fromTreeUri(context, folderUri)
-//        if (folder == null || !folder.exists()) {
-//            Log.e("MusicRepository", "Folder not found or no access")
-//            return emptyList()
-//        }
-//
-//        // 2. Получаем относительный путь папки для MediaStore запроса
-//        val folderPath = getFolderPathFromTreeUri(context, folderUri) ?: run {
-//            Log.e("MusicRepository", "Couldn't resolve folder path")
-//            return emptyList()
-//        }
-//
-//        // 3. Запрос к MediaStore
-//        val projection = arrayOf(
-//            MediaStore.Audio.Media._ID,
-//            MediaStore.Audio.Media.TITLE,
-//            MediaStore.Audio.Media.ARTIST,
-//            MediaStore.Audio.Media.DURATION,
-//            MediaStore.Audio.Media.DATE_ADDED
-//        )
-//
-//        val selection = "${MediaStore.Audio.Media.RELATIVE_PATH} LIKE ?"
-//        val selectionArgs = arrayOf("$folderPath%")
-//
-//        context.contentResolver.query(
-//            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-//            projection,
-//            selection,
-//            selectionArgs,
-//            "${MediaStore.Audio.Media.DATE_ADDED} DESC" // Сортировка по дате добавления
-//        )?.use { cursor ->
-//            val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-//            val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-//            val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-//            val durationCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
-//
-//            while (cursor.moveToNext()) {
-//                val id = cursor.getLong(idCol)
-//                val uri = ContentUris.withAppendedId(
-//                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-//                    id
-//                )
-//
-//                songs.add(
-//                    Song(
-//                        id = id,
-//                        title = cursor.getString(titleCol) ?: "Unknown",
-//                        artist = cursor.getString(artistCol) ?: "Unknown",
-//                        duration = cursor.getLong(durationCol),
-//                        path = uri.toString()
-//                    )
-//                )
-//            }
-//        }
-//
-//        Log.d("MusicRepository", "Found ${songs.size} songs in folder")
-//        return songs
-//    }
-//
-//    // Вспомогательная функция для получения относительного пути из tree Uri
-//    private fun getFolderPathFromTreeUri(context: Context, treeUri: Uri): String? {
-//        if (!DocumentsContract.isTreeUri(treeUri)) return null
-//
-//        val docId = DocumentsContract.getTreeDocumentId(treeUri)
-//        val split = docId.split(":")
-//        if (split.size < 2) return null
-//
-//        val type = split[0]
-//        val path = split[1]
-//
-//        return when (type) {
-//            "primary" -> path
-//            "home" -> path
-//            else -> null
-//        }?.let {
-//            if (it.startsWith("/")) it else "/$it"
-//        }
-//    }
+
 
 }

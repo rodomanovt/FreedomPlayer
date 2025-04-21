@@ -1,5 +1,6 @@
 package com.rodomanovt.freedomplayer.fragments
 
+import android.app.Activity
 import android.app.Activity.RESULT_OK
 import android.app.TimePickerDialog
 import android.content.Intent
@@ -14,11 +15,13 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.widget.doOnTextChanged
 import androidx.databinding.DataBindingUtil
 import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.FragmentSettingsDownloaderBinding
+import com.rodomanovt.freedomplayer.helpers.PrefsHelper
 import com.rodomanovt.freedomplayer.viewmodels.SettingsDownloaderViewModel
 import java.util.Calendar
 
@@ -31,9 +34,10 @@ class SettingsDownloaderFragment : Fragment() {
     }
 
     private val viewModel: SettingsDownloaderViewModel by viewModels()
+    private val prefsHelper by lazy { PrefsHelper(requireContext()) }
     private lateinit var binding: FragmentSettingsDownloaderBinding
 
-    private var directoryPathString: String = "Undefined"
+    //private var directoryPathString: String = "Undefined"
     private var selectedTimeString: String = "Undefined"
 
 
@@ -42,6 +46,7 @@ class SettingsDownloaderFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         binding = DataBindingUtil.inflate(inflater, R.layout.fragment_settings_downloader, container, false)
+        binding.settingDownloadPathText.text = prefsHelper.getRootFolderUri()?.path ?: "Undefined"
         return binding.root
     }
 
@@ -95,14 +100,26 @@ class SettingsDownloaderFragment : Fragment() {
         }
 
 
+        val prefsHelper by lazy { PrefsHelper(requireContext()) }
+        val selectFolderLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val uri = result.data?.data ?: return@registerForActivityResult
+                // Сохраняем URI
+                prefsHelper.saveRootFolderUri(uri)
+
+            }
+        }
+
+        // Запуск выбора папки
+        fun openFolderPicker() {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+            }
+            selectFolderLauncher.launch(intent)
+        }
 
         binding.settingDownloadPathButton.setOnClickListener {
-            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-            startActivityForResult(intent, REQUEST_CODE_OPEN_DIRECTORY)
-            // sets textView string and shot toast in onActivityResult
-            // TODO: сохранить настроку в бд (вынести во viewmodel)
-            // TODO: реализовать функционал (вынести во viewmodel)
-
+            openFolderPicker()
         }
 
 
@@ -153,23 +170,24 @@ class SettingsDownloaderFragment : Fragment() {
         }
 
     }
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == RESULT_OK) {
-            data?.data?.let { uri ->
-                // Получаем URI выбранной директории
-
-                // Сохраняем URI для дальнейшего использования
-                requireContext().contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                )
-
-                directoryPathString = uri.path ?: "Undefined"
-                Toast.makeText(requireContext(), "changed  to ${directoryPathString}", Toast.LENGTH_SHORT).show()
-                binding.settingDownloadPathText.text = directoryPathString
-            }
-        }
-    }
+//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//        super.onActivityResult(requestCode, resultCode, data)
+//
+//        if (requestCode == REQUEST_CODE_OPEN_DIRECTORY && resultCode == RESULT_OK) {
+//            data?.data?.let { uri ->
+//                // Получаем URI выбранной директории
+//
+//                // Сохраняем URI для дальнейшего использования
+//                requireContext().contentResolver.takePersistableUriPermission(
+//                    uri,
+//                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+//                )
+//
+//
+//                binding.settingDownloadPathText.text = uri.path ?: "Undefined"
+//                prefsHelper.saveRootFolderUri(uri)
+//                Toast.makeText(requireContext(), "changed  to ${prefsHelper.getRootFolderUri()}", Toast.LENGTH_SHORT).show()
+//            }
+//        }
+//    }
 }

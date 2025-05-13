@@ -1,5 +1,6 @@
 package com.rodomanovt.freedomplayer.adapters
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.view.LayoutInflater
@@ -7,29 +8,37 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.model.Song
 
 class SongsAdapter(
-    private var songs: List<Song>,
     private val onSongClick: (Song) -> Unit
-) : RecyclerView.Adapter<SongsAdapter.ViewHolder>() {
+) : ListAdapter<Song, SongsAdapter.ViewHolder>(SongComparator) {
 
-    inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.card_song, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(getItem(position), onSongClick)
+    }
+
+    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleView: TextView = itemView.findViewById(R.id.song_title)
         private val artistView: TextView = itemView.findViewById(R.id.song_artist)
         private val durationView: TextView = itemView.findViewById(R.id.song_duration)
         private val albumArtView: ImageView = itemView.findViewById(R.id.song_cover)
 
-
-        fun bind(song: Song) {
+        fun bind(song: Song, onSongClick: (Song) -> Unit) {
             titleView.text = song.title
             artistView.text = song.artist
             durationView.text = formatDuration(song.duration)
-
-            // Загрузка обложки
-            loadAlbumArt(song.path)
+            albumArtView.setImageBitmap(loadAlbumArt(song.path))
 
             itemView.setOnClickListener { onSongClick(song) }
         }
@@ -40,40 +49,21 @@ class SongsAdapter(
             return String.format("%02d:%02d", minutes, seconds)
         }
 
-        private fun loadAlbumArt(songPath: String) {
+        private fun loadAlbumArt(songPath: String): Bitmap? {
             val retriever = MediaMetadataRetriever()
-            try {
+            return try {
                 retriever.setDataSource(songPath)
                 val artBytes = retriever.embeddedPicture
-                if (artBytes != null) {
-                    val bitmap = BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size)
-                    albumArtView.setImageBitmap(bitmap)
-                } else {
-                    albumArtView.setImageResource(R.drawable.baseline_music_note_24)
-                }
+                BitmapFactory.decodeByteArray(artBytes, 0, artBytes!!.size.also { retriever.release() })
             } catch (e: Exception) {
-                albumArtView.setImageResource(R.drawable.baseline_music_note_24)
-            } finally {
                 retriever.release()
+                null
             }
         }
     }
 
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.card_song, parent, false)
-        return ViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(songs[position])
-    }
-
-    override fun getItemCount(): Int = songs.size
-
-    fun updateData(newSongs: List<Song>) {
-        songs = newSongs
-        notifyDataSetChanged()
+    object SongComparator : DiffUtil.ItemCallback<Song>() {
+        override fun areItemsTheSame(oldItem: Song, newItem: Song) = oldItem.id == newItem.id
+        override fun areContentsTheSame(oldItem: Song, newItem: Song) = oldItem == newItem
     }
 }

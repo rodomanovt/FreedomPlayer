@@ -4,9 +4,7 @@ import android.net.Uri
 
 data class Playlist(
     val name: String,
-    val songs: List<Song>,
+    val tracksCount: Int,
     val folderUri: Uri,
-){
-    val tracksCount: Int
-        get() = songs.size
-}
+    val songs: List<Song> = emptyList()
+)

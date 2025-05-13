@@ -21,30 +21,33 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     private val _songs = MutableLiveData<List<Song>>()
     val songs: LiveData<List<Song>> = _songs
 
-    fun loadSongs(folderUri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
+    fun loadExistingAndCheckForNewPlaylists(rootFolderUri: Uri) {
+        viewModelScope.launch {
             try {
-                val folder = DocumentFile.fromTreeUri(app, folderUri)
-                if (folder != null && folder.exists()) {
-                    val songsList = repository.getSongsFromFolder(folder)
-                    _songs.postValue(songsList)
-                } else {
-                    _songs.postValue(emptyList())
-                    Log.e("MusicViewModel", "Folder not accessible")
-                }
+                val allPlaylists = repository.getAllPlaylists(rootFolderUri)
+                _playlists.postValue(allPlaylists)
             } catch (e: Exception) {
-                _songs.postValue(emptyList())
-                Log.e("MusicViewModel", "Error loading songs", e)
+                Log.e("MusicViewModel", "Ошибка загрузки плейлистов", e)
+                _playlists.postValue(emptyList())
             }
         }
     }
 
-    // TODO: записывать плейлисты в бд
-
-    fun loadPlaylists(rootFolderUri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val playlists = repository.getPlaylists(rootFolderUri)
-            _playlists.postValue(playlists)
+    fun loadSongs(folderUri: Uri) {
+        viewModelScope.launch {
+            try {
+                val folder = DocumentFile.fromTreeUri(app, folderUri)
+                if (folder != null && folder.exists()) {
+                    val songs = repository.getSongsFromFolder(folder)
+                    _songs.postValue(songs)
+                } else {
+                    Log.e("MusicViewModel", "Папка не существует или недоступна")
+                    _songs.postValue(emptyList())
+                }
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Ошибка при загрузке треков", e)
+                _songs.postValue(emptyList())
+            }
         }
     }
 }

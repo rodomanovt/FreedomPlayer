@@ -24,7 +24,6 @@ class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
     private lateinit var adapter: SongsAdapter
     private val viewModel: MusicViewModel by viewModels()
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -33,69 +32,51 @@ class SongsFragment : Fragment() {
         binding = FragmentSongsBinding.inflate(inflater, container, false)
         return binding.root
     }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         setupRecyclerView()
         loadSongs()
-        //setupObservers()
+        setupObservers()
     }
-
     private fun setupRecyclerView() {
-        adapter = SongsAdapter(emptyList()) { song ->
+        adapter = SongsAdapter() { song ->
             // Обработка клика по треку
             //(activity as? MainActivity)?.playSong(song)
         }
-
         binding.recyclerViewSongs.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@SongsFragment.adapter
-            addItemDecoration(
-                DividerItemDecoration(
-                    requireContext(),
-                    LinearLayoutManager.VERTICAL
-                )
-            )
+            addItemDecoration(DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL))
         }
     }
-
     private fun loadSongs() {
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
-
-            // Проверяем доступ к папке
             val folder = DocumentFile.fromTreeUri(requireContext(), folderUri)
             if (folder != null && folder.canRead()) {
                 viewModel.loadSongs(folderUri)
             } else {
-
-                    showError("No access to folder")
-                }
+                showError("Нет доступа к папке")
             }
         }
-
-
-//    private fun setupObservers() {
-//        viewModel.songs.observe(viewLifecycleOwner) { songs ->
-//            if (songs.isEmpty()) {
-//                showEmptyState(true)
-//            } else {
-//                showEmptyState(false)
-//                adapter.updateData(songs)
-//            }
-//        }
-//    }
-
-//    private fun showEmptyState(show: Boolean) {
-//        binding.apply {
-//            recyclerViewSongs.visibility = if (show) View.GONE else View.VISIBLE
-//            emptyStateView.visibility = if (show) View.VISIBLE else View.GONE
-//        }
-//    }
-
+    }
+    private fun setupObservers() {
+        viewModel.songs.observe(viewLifecycleOwner) { songs ->
+            if (songs.isEmpty()) {
+                showEmptyState(true)
+            } else {
+                showEmptyState(false)
+                adapter.submitList(songs)
+            }
+        }
+    }
+    private fun showEmptyState(show: Boolean) {
+        binding.apply {
+            recyclerViewSongs.visibility = if (show) View.GONE else View.VISIBLE
+            // TODO: emptyStateView.visibility = if (show) View.VISIBLE else View.GONE
+        }
+    }
     private fun showError(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
-
 }

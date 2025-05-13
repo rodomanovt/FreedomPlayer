@@ -10,5 +10,5 @@ data class Song(
     val duration: Long,
     val path: String,
     val album: String? = null,
-    val albumArt: Serializable
+    val albumArt: Serializable? = null
 )

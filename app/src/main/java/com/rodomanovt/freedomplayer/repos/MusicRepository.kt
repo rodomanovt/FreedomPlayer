@@ -8,94 +8,117 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.viewModelScope
 import com.rodomanovt.freedomplayer.R
+import com.rodomanovt.freedomplayer.model.AppDatabase
 import com.rodomanovt.freedomplayer.model.Playlist
+import com.rodomanovt.freedomplayer.model.PlaylistEntity
 import com.rodomanovt.freedomplayer.model.Song
+import com.rodomanovt.freedomplayer.model.SongEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
 
 class MusicRepository(private val context: Context) {
-    private val contentResolver = context.contentResolver
+    private val db = AppDatabase.getInstance(context)
+    private val playlistDao = db.playlistDao()
+    private val songDao = db.songDao()
 
-    // Получение всех плейлистов (папок с музыкой)
-    fun getPlaylists(rootFolderUri: Uri): List<Playlist> {
-        val playlists = mutableListOf<Playlist>()
+    suspend fun getPlaylistsFromDb(): List<Playlist> = withContext(Dispatchers.IO) {
+        playlistDao.getAll().map { entity ->
+            Playlist(
+                name = entity.name,
+                tracksCount = entity.tracksCount,
+                folderUri = Uri.parse(entity.folderUri),
+                songs = emptyList()
+            )
+        }
+    }
 
-        Log.d("MusicRepository", "Loading playlists from: $rootFolderUri")
+    suspend fun scanForNewPlaylists(rootFolderUri: Uri): List<Playlist> = withContext(Dispatchers.IO) {
+        val existingInDb = playlistDao.getAll().map { it.folderUri }.toSet()
+        val newPlaylists = mutableListOf<Playlist>()
 
-
-        // Запрос к корневой папке (используем DocumentFile для работы с URI)
         val rootFolder = DocumentFile.fromTreeUri(context, rootFolderUri)
-        Log.d("MusicRepository", "Root folder exists: ${rootFolder?.exists()}")
-        rootFolder?.listFiles()?.forEach { folder ->
-            if (folder.isDirectory && folder.name?.get(0) != '.') {
-                val songs = getSongsFromFolder(folder)
+        if (rootFolder == null || !rootFolder.exists()) return@withContext emptyList()
 
-//                folder.listFiles().forEach { file ->
-//                    Log.d("FileDebug", """
-//                    Имя: ${file.name}
-//                    Тип: ${file.type}
-//                    Доступен: ${file.canRead()}
-//                    URI: ${file.uri}
-//                """.trimIndent())
-//                }
+        rootFolder.listFiles().forEach { folder ->
+            if (folder.isDirectory && folder.name?.startsWith('.') != true) {
+                val folderUriStr = folder.uri.toString()
+                if (!existingInDb.contains(folderUriStr)) {
+                    val songs = getSongsFromFolder(folder)
+                    val playlist = Playlist(
+                        name = folder.name ?: "Unnamed",
+                        tracksCount = songs.size,
+                        folderUri = folder.uri,
+                        songs = songs
+                    )
 
-                Log.d("MusicRepository", "Found folder: ${folder.name} with ${songs.size} songs")
+                    // Сохраняем в БД
+                    playlistDao.insert(PlaylistEntity(
+                        folderUri = folderUriStr,
+                        name = folder.name!!,
+                        tracksCount = songs.size
+                    ))
+                    songDao.insertAll(songs.map {
+                        SongEntity(
+                            id = it.id,
+                            title = it.title,
+                            artist = it.artist,
+                            duration = it.duration,
+                            path = it.path
+                        )
+                    })
 
-                if (true
-                    //&& songs.isNotEmpty()
-                    ) {
-                    playlists.add(Playlist(folder.name ?: "Unknown", songs, folder.uri))
+                    newPlaylists.add(playlist)
                 }
             }
         }
 
-        Log.d("MusicRepository", "Total playlists found: ${playlists.size}")
-        return playlists
+        Log.d("MusicRepository", "Найдено новых плейлистов: ${newPlaylists.size}")
+        return@withContext newPlaylists
     }
 
+    suspend fun getAllPlaylists(rootFolderUri: Uri): List<Playlist> = withContext(Dispatchers.IO) {
+        val fromDb = getPlaylistsFromDb()
+        val newOnes = scanForNewPlaylists(rootFolderUri)
+
+        return@withContext fromDb + newOnes
+    }
 
     fun getSongsFromFolder(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
         val retriever = MediaMetadataRetriever()
 
         folder.listFiles().forEach { file ->
-            if (file.isFile && (file.type == "audio/mpeg" || file.name?.endsWith(".mp3", ignoreCase = true) == true)) {
+            if (file.isFile && isAudioFile(file)) {
                 try {
-                    // Открываем файл через FileDescriptor
                     val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
-                    pfd?.use { parcelFd ->
-                        retriever.setDataSource(parcelFd.fileDescriptor)
+                    pfd?.use { fd ->
+                        retriever.setDataSource(fd.fileDescriptor)
 
-                        // Извлекаем метаданные
                         val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
                             ?: file.name?.substringBeforeLast(".")
                             ?: "Unknown"
-
                         val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
-                            ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUMARTIST)
                             ?: "Unknown"
+                        val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
 
-                        val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                            ?.toLongOrNull()
-                            ?: 0L
-
-                        val albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
-
-                        songs.add(
-                            Song(
-                                id = file.uri.hashCode().toLong(),
-                                title = title,
-                                artist = artist,
-                                duration = duration,
-                                path = file.uri.toString(),
-                                albumArt = albumArt
-
-                            )
+                        val song = Song(
+                            id = file.uri.hashCode().toLong(),
+                            title = title,
+                            artist = artist,
+                            duration = duration,
+                            path = file.uri.toString(),
+                            albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
                         )
-
-                        Log.d("MusicRepository", "Added song: $title - $artist ($duration ms)")
+                        Log.d("MusicRepository", "Added $artist - $title")
+                        songs.add(song)
                     }
                 } catch (e: Exception) {
-                    Log.e("MusicRepository", "Error reading metadata for ${file.name}", e)
+                    Log.e("MusicRepository", "Ошибка чтения метаданных для ${file.name}", e)
                 }
             }
         }
@@ -104,5 +127,7 @@ class MusicRepository(private val context: Context) {
         return songs
     }
 
-
+    private fun isAudioFile(file: DocumentFile): Boolean {
+        return file.type == "audio/mpeg" || file.name?.endsWith(".mp3", ignoreCase = true) == true
+    }
 }

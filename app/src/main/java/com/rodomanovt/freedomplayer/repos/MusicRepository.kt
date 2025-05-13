@@ -8,6 +8,7 @@ import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
+import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.model.Playlist
 import com.rodomanovt.freedomplayer.model.Song
 
@@ -52,7 +53,7 @@ class MusicRepository(private val context: Context) {
     }
 
 
-    private fun getSongsFromFolder(folder: DocumentFile): List<Song> {
+    fun getSongsFromFolder(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
         val retriever = MediaMetadataRetriever()
 
@@ -77,13 +78,17 @@ class MusicRepository(private val context: Context) {
                             ?.toLongOrNull()
                             ?: 0L
 
+                        val albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
+
                         songs.add(
                             Song(
                                 id = file.uri.hashCode().toLong(),
                                 title = title,
                                 artist = artist,
                                 duration = duration,
-                                path = file.uri.toString()
+                                path = file.uri.toString(),
+                                albumArt = albumArt
+
                             )
                         )
 

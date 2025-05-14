@@ -1,14 +1,12 @@
 package com.rodomanovt.freedomplayer.repos
 
-import android.content.ContentUris
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.MediaMetadataRetriever
 import android.net.Uri
-import android.provider.DocumentsContract
-import android.provider.MediaStore
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
-import androidx.lifecycle.viewModelScope
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.model.AppDatabase
 import com.rodomanovt.freedomplayer.model.Playlist
@@ -16,9 +14,8 @@ import com.rodomanovt.freedomplayer.model.PlaylistEntity
 import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.model.SongEntity
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.Serializable
 
 
 class MusicRepository(private val context: Context) {
@@ -57,18 +54,21 @@ class MusicRepository(private val context: Context) {
                     )
 
                     // Сохраняем в БД
-                    playlistDao.insert(PlaylistEntity(
+                    playlistDao.insert(
+                        PlaylistEntity(
                         folderUri = folderUriStr,
                         name = folder.name!!,
                         tracksCount = songs.size
-                    ))
+                    )
+                    )
                     songDao.insertAll(songs.map {
                         SongEntity(
                             id = it.id,
                             title = it.title,
                             artist = it.artist,
                             duration = it.duration,
-                            path = it.path
+                            songPath = it.songPath,
+                            playlistPath = it.playlistPath
                         )
                     })
 
@@ -91,6 +91,8 @@ class MusicRepository(private val context: Context) {
     fun getSongsFromFolder(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
         val retriever = MediaMetadataRetriever()
+        Log.d("MusicRepository", "Начинаем сканирование папки: ${folder.name}")
+
 
         folder.listFiles().forEach { file ->
             if (file.isFile && isAudioFile(file)) {
@@ -100,29 +102,37 @@ class MusicRepository(private val context: Context) {
                         retriever.setDataSource(fd.fileDescriptor)
 
                         val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                            ?: file.name?.substringBeforeLast(".")
-                            ?: "Unknown"
+                            ?: file.name?.substringBeforeLast(".") ?: "Unknown"
                         val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                             ?: "Unknown"
                         val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
 
-                        val song = Song(
-                            id = file.uri.hashCode().toLong(),
-                            title = title,
-                            artist = artist,
-                            duration = duration,
-                            path = file.uri.toString(),
-                            albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
+                        val artBytes = retriever.embeddedPicture
+                        val albumArt: Any = if (artBytes != null) {
+                            BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size)
+                        } else {
+                            R.drawable.baseline_music_note_24
+                        }
+
+                        songs.add(
+                            Song(
+                                id = file.uri.hashCode().toLong(),
+                                title = title,
+                                artist = artist,
+                                duration = duration,
+                                playlistPath = folder.uri.toString(),
+                                songPath = file.uri.toString(),
+                                albumArt = albumArt
+                            )
                         )
                         Log.d("MusicRepository", "Added $artist - $title")
-                        songs.add(song)
                     }
                 } catch (e: Exception) {
-                    Log.e("MusicRepository", "Ошибка чтения метаданных для ${file.name}", e)
+                    Log.e("MusicRepository", "Error reading metadata for ${file.name}", e)
                 }
             }
         }
-
+        Log.d("MusicRepository", "Загружено треков: ${songs.size}")
         retriever.release()
         return songs
     }
@@ -130,4 +140,86 @@ class MusicRepository(private val context: Context) {
     private fun isAudioFile(file: DocumentFile): Boolean {
         return file.type == "audio/mpeg" || file.name?.endsWith(".mp3", ignoreCase = true) == true
     }
+
+    suspend fun getSongsFromDb(folderUri: String): List<Song> {
+        val songs = songDao.getSongsByFolder(folderUri)
+        Log.d("MusicRepository", "Загружено из БД песен для ${folderUri}: ${songs.size}")
+        return songs.map { entity ->
+            Song(
+                id = entity.id,
+                title = entity.title,
+                artist = entity.artist,
+                duration = entity.duration,
+                playlistPath = entity.playlistPath,
+                songPath = entity.songPath,
+                albumArt = if (entity.albumArt != null) {
+                    BitmapFactory.decodeByteArray(entity.albumArt, 0, entity.albumArt.size)
+                } else {
+                    R.drawable.baseline_music_note_24
+                }
+            )
+        }
+    }
+
+    suspend fun scanAndSaveSongs(folder: DocumentFile): List<Song> {
+        val songs = mutableListOf<Song>()
+        val retriever = MediaMetadataRetriever()
+
+        folder.listFiles().forEach { file ->
+            if (file.isFile && isAudioFile(file)) {
+                try {
+                    val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
+                    pfd?.use { fd ->
+                        retriever.setDataSource(fd.fileDescriptor)
+
+                        val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                            ?: file.name?.substringBeforeLast(".") ?: "Unknown"
+                        val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST) ?: "Unknown"
+                        val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+
+                        val song = Song(
+                            id = file.uri.hashCode().toLong(),
+                            title = title,
+                            artist = artist,
+                            duration = duration,
+                            playlistPath = folder.uri.toString(),
+                            songPath = file.uri.toString(),
+                            albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
+                        )
+                        Log.d("MusicRepository", "Scanned and added $artist - $title" )
+                        songs.add(song)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MusicRepository", "Error reading metadata for ${file.name}", e)
+                }
+            }
+        }
+
+        retriever.release()
+
+        // Сохраняем в БД
+        songDao.insertAll(songs.map {
+            SongEntity(
+                id = it.id,
+                title = it.title,
+                artist = it.artist,
+                duration = it.duration,
+                playlistPath = it.playlistPath,
+                songPath = it.songPath,
+                albumArt = null // Можно сохранять URI или Bitmap как Uri.parse(it.path).toString()
+            )
+        })
+
+        return songs
+    }
+
+
+//    private fun loadAlbumArt(albumArtBytes: ByteArray?): Any {
+//        return if (albumArtBytes != null) {
+//            val bitmap = BitmapFactory.decodeByteArray(albumArtBytes, 0, albumArtBytes.size)
+//            bitmap
+//        } else {
+//            R.drawable.baseline_music_note_24
+//        }
+//    }
 }

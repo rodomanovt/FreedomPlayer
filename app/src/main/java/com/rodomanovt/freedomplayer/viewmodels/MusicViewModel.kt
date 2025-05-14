@@ -33,20 +33,26 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
         }
     }
 
+
     fun loadSongs(folderUri: Uri) {
         viewModelScope.launch {
             try {
                 val folder = DocumentFile.fromTreeUri(app, folderUri)
                 if (folder != null && folder.exists()) {
-                    val songs = repository.getSongsFromFolder(folder)
-                    _songs.postValue(songs)
+                    val songsFromDb = repository.getSongsFromDb(folderUri.toString())
+                    if (songsFromDb.isNotEmpty()) {
+                        _songs.postValue(songsFromDb)
+                    } else {
+                        val scannedSongs = repository.scanAndSaveSongs(folder)
+                        _songs.postValue(scannedSongs)
+                    }
                 } else {
-                    Log.e("MusicViewModel", "Папка не существует или недоступна")
                     _songs.postValue(emptyList())
+                    Log.e("MusicViewModel", "Folder not accessible")
                 }
             } catch (e: Exception) {
-                Log.e("MusicViewModel", "Ошибка при загрузке треков", e)
                 _songs.postValue(emptyList())
+                Log.e("MusicViewModel", "Error loading songs", e)
             }
         }
     }

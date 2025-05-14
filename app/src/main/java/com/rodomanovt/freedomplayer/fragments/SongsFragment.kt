@@ -3,6 +3,7 @@ package com.rodomanovt.freedomplayer.fragments
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +27,8 @@ class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
     private lateinit var adapter: SongsAdapter
     private val viewModel: MusicViewModel by viewModels()
+    private var playlistName: String = ""
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -34,23 +37,32 @@ class SongsFragment : Fragment() {
         binding = FragmentSongsBinding.inflate(inflater, container, false)
         return binding.root
     }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        binding.backBtn.setOnClickListener{
-            findNavController().navigate(R.id.action_songsFragment_to_playlistsFragment)
+        binding.backBtn.setOnClickListener {
+            findNavController().navigateUp()
         }
 
-        // должно показываться название плейлиста binding.playlistNameText.text =
+        arguments?.getString("folderUri")?.let { uriString ->
+            val folderUri = Uri.parse(uriString)
+            playlistName = getPlaylistNameFromUri(folderUri)
+            binding.playlistNameText.text = playlistName
+        }
 
         setupRecyclerView()
         loadSongs()
-        setupObservers()
+        setupObservers() // ✅ НЕ ЗАБУДИТЕ ЭТОТ МЕТОД
     }
+
+    private fun getPlaylistNameFromUri(uri: Uri): String {
+        return uri.lastPathSegment?.split("/")?.lastOrNull() ?: "Плейлист"
+    }
+
     private fun setupRecyclerView() {
-        adapter = SongsAdapter() { song ->
-            // Обработка клика по треку
-            //(activity as? MainActivity)?.playSong(song)
+        adapter = SongsAdapter { song ->
+            // Логика при нажатии на песню
         }
         binding.recyclerViewSongs.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -58,6 +70,7 @@ class SongsFragment : Fragment() {
             addItemDecoration(DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL))
         }
     }
+
     private fun loadSongs() {
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
@@ -69,8 +82,10 @@ class SongsFragment : Fragment() {
             }
         }
     }
+
     private fun setupObservers() {
         viewModel.songs.observe(viewLifecycleOwner) { songs ->
+            Log.d("SongsFragment", "Получено песен: ${songs.size}")
             if (songs.isEmpty()) {
                 showEmptyState(true)
             } else {
@@ -79,12 +94,14 @@ class SongsFragment : Fragment() {
             }
         }
     }
+
     private fun showEmptyState(show: Boolean) {
         binding.apply {
             recyclerViewSongs.visibility = if (show) View.GONE else View.VISIBLE
-            // TODO: emptyStateView.visibility = if (show) View.VISIBLE else View.GONE
+            //emptyStateView.visibility = if (show) View.VISIBLE else View.GONE
         }
     }
+
     private fun showError(message: String) {
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }

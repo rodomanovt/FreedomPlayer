@@ -104,6 +104,8 @@ class SettingsDownloaderFragment : Fragment() {
         val selectFolderLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val uri = result.data?.data ?: return@registerForActivityResult
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                requireContext().contentResolver.takePersistableUriPermission(uri, flags)
                 // Сохраняем URI
                 prefsHelper.saveRootFolderUri(uri)
 

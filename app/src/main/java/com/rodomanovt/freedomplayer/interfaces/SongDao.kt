@@ -11,6 +11,7 @@ interface SongDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(songs: List<SongEntity>)
 
-    @Query("SELECT * FROM songs WHERE path LIKE :folderUri || '/%'")
+    @Query("SELECT * FROM songs WHERE playlistPath LIKE :folderUri || '%'")
     suspend fun getSongsByFolder(folderUri: String): List<SongEntity>
+
 }

@@ -11,12 +11,9 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(playlist: PlaylistEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(playlists: List<PlaylistEntity>)
+    @Query("SELECT * FROM playlists WHERE folderUri = :folderUri")
+    suspend fun getPlaylistByFolderUri(folderUri: String): PlaylistEntity?
 
     @Query("SELECT * FROM playlists")
     suspend fun getAll(): List<PlaylistEntity>
-
-    @Query("DELETE FROM playlists")
-    suspend fun deleteAll()
 }

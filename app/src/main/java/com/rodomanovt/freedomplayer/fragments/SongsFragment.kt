@@ -24,6 +24,7 @@ import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.repos.MusicRepository
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
+import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbumArt
 import com.rodomanovt.freedomplayer.viewmodels.SettingsDownloaderViewModel
 
 class SongsFragment : Fragment() {
@@ -88,30 +89,25 @@ class SongsFragment : Fragment() {
 
     private fun setupObservers() {
         viewModel.songs.observe(viewLifecycleOwner) { songs ->
-            Log.d("SongsFragment", "Получено песен: ${songs.size}")
-            if (songs.isEmpty()) {
-                showEmptyState(true)
-            } else {
-                showEmptyState(false)
-                adapter.submitList(songs)
-            }
+            adapter.submitList(songs)
+            //binding.emptyStateView.visibility = if (songs.isEmpty()) View.VISIBLE else View.GONE
         }
 
         playerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
-            if (song != null) {
-                updateBottomPlayer(song)
-                binding.playerCard.visibility = View.VISIBLE
-            } else {
-                binding.playerCard.visibility = View.GONE
-            }
+            song?.let { updateBottomPlayer(it) }
+            binding.playerCard.visibility = if (song != null) View.VISIBLE else View.GONE
         }
     }
 
     private fun updateBottomPlayer(song: Song) {
         binding.playerTitle.text = song.title
         binding.playerArtist.text = song.artist
+        loadAlbumArt(song, binding.playerAlbumArt)
+        binding.playerPlayPause.setImageResource(R.drawable.baseline_menu_24)
+        binding.playerPlayPause.tag = "playing"
 
 //        binding.playerCard.setOnClickListener {
+//            // Навигация к полноценному плееру
 //            findNavController().navigate(R.id.action_songsFragment_to_playerFragment)
 //        }
 
@@ -121,8 +117,9 @@ class SongsFragment : Fragment() {
                 binding.playerPlayPause.tag = "paused"
                 playerViewModel.stopCurrentSong()
             } else {
-                binding.playerPlayPause.setImageResource(R.drawable.baseline_arrow_circle_down_24)
+                binding.playerPlayPause.setImageResource(R.drawable.baseline_menu_24)
                 binding.playerPlayPause.tag = "playing"
+                song?.let { playerViewModel.playSong(requireContext(), it) }
             }
         }
     }

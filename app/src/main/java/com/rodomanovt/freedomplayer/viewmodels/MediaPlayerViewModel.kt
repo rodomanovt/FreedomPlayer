@@ -19,38 +19,27 @@ class MediaPlayerViewModel : ViewModel() {
 
     private var mediaPlayer: MediaPlayer? = null
 
+
     fun playSong(context: Context, song: Song) {
-        viewModelScope.launch {
-            try {
-                val player = MediaPlayer().apply {
-                    val uri = Uri.parse(song.songPath)
-                    val resolver = context.contentResolver
-                    val descriptor = resolver.openFileDescriptor(uri, "r")
-                        ?: throw IOException("Не удалось открыть файловый дескриптор")
+        mediaPlayer?.release() // Освобождаем предыдущий плеер
 
-                    // Воспроизводим через FileDescriptor
-                    setDataSource(descriptor.fileDescriptor)
-                    prepare()
-                    start()
-                }
-
-                // Освобождаем старый плеер, если он был
-                mediaPlayer?.release()
-                mediaPlayer = player
-            } catch (e: Exception) {
-                Log.e("MediaPlayerViewModel", "Ошибка воспроизведения песни", e)
-                Toast.makeText(context, "Не удалось воспроизвести ${song.title}", Toast.LENGTH_SHORT).show()
+        mediaPlayer = MediaPlayer().apply {
+            setDataSource(context, Uri.parse(song.songPath))
+            setOnPreparedListener {
+                start()
+                _currentSong.postValue(song) // 🔥 Важно: обновляем LiveData после начала воспроизведения
             }
+            prepareAsync() // Используем асинхронную подготовку
         }
     }
 
     fun stopCurrentSong() {
         mediaPlayer?.let {
             it.stop()
-            it.release()
+            //it.release()
         }
-        mediaPlayer = null
-        _currentSong.postValue(null)
+        //mediaPlayer = null
+        //_currentSong.postValue(null)
     }
 
     override fun onCleared() {

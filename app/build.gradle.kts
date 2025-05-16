@@ -59,8 +59,9 @@ dependencies {
     implementation(libs.androidx.navigation.dynamic.features.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation ("androidx.room:room-runtime:2.6.0")
-    annotationProcessor ("androidx.room:room-compiler:2.6.0")
-    kapt ("androidx.room:room-compiler:2.6.0")
-    implementation ("androidx.room:room-ktx:2.6.0")
+    implementation (libs.androidx.room.runtime)
+    annotationProcessor (libs.androidx.room.compiler)
+    kapt (libs.androidx.room.compiler)
+    implementation (libs.androidx.room.ktx)
+    implementation (libs.glide)
 }

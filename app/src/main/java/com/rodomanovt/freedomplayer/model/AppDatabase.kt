@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.rodomanovt.freedomplayer.interfaces.PlaylistDao
 import com.rodomanovt.freedomplayer.interfaces.SongDao
 
-@Database(entities = [SongEntity::class, PlaylistEntity::class], version = 4, exportSchema = false)
+@Database(entities = [SongEntity::class, PlaylistEntity::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun playlistDao(): PlaylistDao

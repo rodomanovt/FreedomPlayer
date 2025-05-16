@@ -7,6 +7,6 @@ data class Song(
     val duration: Long,
     val playlistPath: String,
     val songPath: String,
-    val album: String? = null,
-    val albumArt: Any
+    //val album: String? = null,
+    //val albumArt: Any
 )

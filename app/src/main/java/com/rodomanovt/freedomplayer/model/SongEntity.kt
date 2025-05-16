@@ -11,5 +11,5 @@ data class SongEntity(
     val duration: Long,
     val playlistPath: String,
     val songPath: String,
-    val albumArt: ByteArray? = null // Можно хранить URI или путь к обложке
+    //val albumArt: ByteArray? = null // Можно хранить URI или путь к обложке
 )

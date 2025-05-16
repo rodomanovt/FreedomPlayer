@@ -15,7 +15,6 @@ import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.model.SongEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.Serializable
 
 
 class MusicRepository(private val context: Context) {
@@ -107,12 +106,12 @@ class MusicRepository(private val context: Context) {
                             ?: "Unknown"
                         val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
 
-                        val artBytes = retriever.embeddedPicture
-                        val albumArt: Any = if (artBytes != null) {
-                            BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size)
-                        } else {
-                            R.drawable.baseline_music_note_24
-                        }
+//                        val artBytes = retriever.embeddedPicture
+//                        val albumArt: Any = if (artBytes != null) {
+//                            BitmapFactory.decodeByteArray(artBytes, 0, artBytes.size)
+//                        } else {
+//                            R.drawable.baseline_music_note_24
+//                        }
 
                         songs.add(
                             Song(
@@ -122,7 +121,7 @@ class MusicRepository(private val context: Context) {
                                 duration = duration,
                                 playlistPath = folder.uri.toString(),
                                 songPath = file.uri.toString(),
-                                albumArt = albumArt
+                                //albumArt = albumArt
                             )
                         )
                         Log.d("MusicRepository", "Added $artist - $title")
@@ -152,11 +151,11 @@ class MusicRepository(private val context: Context) {
                 duration = entity.duration,
                 playlistPath = entity.playlistPath,
                 songPath = entity.songPath,
-                albumArt = if (entity.albumArt != null) {
-                    BitmapFactory.decodeByteArray(entity.albumArt, 0, entity.albumArt.size)
-                } else {
-                    R.drawable.baseline_music_note_24
-                }
+//                albumArt = if (entity.albumArt != null) {
+//                    BitmapFactory.decodeByteArray(entity.albumArt, 0, entity.albumArt.size)
+//                } else {
+//                    R.drawable.baseline_music_note_24
+//                }
             )
         }
     }
@@ -184,7 +183,7 @@ class MusicRepository(private val context: Context) {
                             duration = duration,
                             playlistPath = folder.uri.toString(),
                             songPath = file.uri.toString(),
-                            albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
+                            //albumArt = retriever.embeddedPicture ?: R.drawable.baseline_music_note_24
                         )
                         Log.d("MusicRepository", "Scanned and added $artist - $title" )
                         songs.add(song)
@@ -206,20 +205,10 @@ class MusicRepository(private val context: Context) {
                 duration = it.duration,
                 playlistPath = it.playlistPath,
                 songPath = it.songPath,
-                albumArt = null // Можно сохранять URI или Bitmap как Uri.parse(it.path).toString()
+                //albumArt = null // Можно сохранять URI или Bitmap как Uri.parse(it.path).toString()
             )
         })
 
         return songs
     }
-
-
-//    private fun loadAlbumArt(albumArtBytes: ByteArray?): Any {
-//        return if (albumArtBytes != null) {
-//            val bitmap = BitmapFactory.decodeByteArray(albumArtBytes, 0, albumArtBytes.size)
-//            bitmap
-//        } else {
-//            R.drawable.baseline_music_note_24
-//        }
-//    }
 }

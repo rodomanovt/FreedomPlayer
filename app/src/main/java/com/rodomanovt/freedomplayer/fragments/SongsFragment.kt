@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -19,7 +20,9 @@ import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.activities.MainActivity
 import com.rodomanovt.freedomplayer.adapters.SongsAdapter
 import com.rodomanovt.freedomplayer.databinding.FragmentSongsBinding
+import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.repos.MusicRepository
+import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
 import com.rodomanovt.freedomplayer.viewmodels.SettingsDownloaderViewModel
 
@@ -27,6 +30,7 @@ class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
     private lateinit var adapter: SongsAdapter
     private val viewModel: MusicViewModel by viewModels()
+    private val playerViewModel: MediaPlayerViewModel by activityViewModels()
     private var playlistName: String = ""
 
     override fun onCreateView(
@@ -41,6 +45,12 @@ class SongsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        setupUI()
+        loadSongs()
+        setupObservers()
+    }
+
+    private fun setupUI() {
         binding.backBtn.setOnClickListener {
             findNavController().navigateUp()
         }
@@ -51,24 +61,17 @@ class SongsFragment : Fragment() {
             binding.playlistNameText.text = playlistName
         }
 
-        setupRecyclerView()
-        loadSongs()
-        setupObservers() // ✅ НЕ ЗАБУДИТЕ ЭТОТ МЕТОД
-    }
-
-    private fun getPlaylistNameFromUri(uri: Uri): String {
-        return uri.lastPathSegment?.split("/")?.lastOrNull() ?: "Плейлист"
-    }
-
-    private fun setupRecyclerView() {
         adapter = SongsAdapter { song ->
-            // Логика при нажатии на песню
+            playerViewModel.playSong(requireContext(), song)
         }
+
         binding.recyclerViewSongs.apply {
             layoutManager = LinearLayoutManager(requireContext())
             adapter = this@SongsFragment.adapter
             addItemDecoration(DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL))
         }
+
+        binding.playerCard.visibility = View.GONE
     }
 
     private fun loadSongs() {
@@ -93,13 +96,43 @@ class SongsFragment : Fragment() {
                 adapter.submitList(songs)
             }
         }
+
+        playerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
+            if (song != null) {
+                updateBottomPlayer(song)
+                binding.playerCard.visibility = View.VISIBLE
+            } else {
+                binding.playerCard.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun updateBottomPlayer(song: Song) {
+        binding.playerTitle.text = song.title
+        binding.playerArtist.text = song.artist
+
+//        binding.playerCard.setOnClickListener {
+//            findNavController().navigate(R.id.action_songsFragment_to_playerFragment)
+//        }
+
+        binding.playerPlayPause.setOnClickListener {
+            if (binding.playerPlayPause.tag == "playing") {
+                binding.playerPlayPause.setImageResource(R.drawable.baseline_arrow_right_24)
+                binding.playerPlayPause.tag = "paused"
+                playerViewModel.stopCurrentSong()
+            } else {
+                binding.playerPlayPause.setImageResource(R.drawable.baseline_arrow_circle_down_24)
+                binding.playerPlayPause.tag = "playing"
+            }
+        }
+    }
+
+    private fun getPlaylistNameFromUri(uri: Uri): String {
+        return uri.lastPathSegment?.split("/")?.lastOrNull() ?: "Плейлист"
     }
 
     private fun showEmptyState(show: Boolean) {
-        binding.apply {
-            recyclerViewSongs.visibility = if (show) View.GONE else View.VISIBLE
-            //emptyStateView.visibility = if (show) View.VISIBLE else View.GONE
-        }
+        binding.recyclerViewSongs.visibility = if (show) View.GONE else View.VISIBLE
     }
 
     private fun showError(message: String) {

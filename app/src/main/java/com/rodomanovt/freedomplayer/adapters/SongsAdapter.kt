@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class SongsAdapter(
-private val onSongClick: (Song) -> Unit
+    private val onSongClick: (Song) -> Unit
 ) : ListAdapter<Song, SongsAdapter.ViewHolder>(SongDiffCallback) {
 
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -89,12 +89,12 @@ private val onSongClick: (Song) -> Unit
 
             loadAlbumArt(song, albumArtView)
 
-
             Log.d("SongsAdapter", "Loaded ${song.songPath}")
 
             //itemView.setOnClickListener { onSongClick(song) }
 
         }
+
 
 
         private fun formatDuration(millis: Long): String {
@@ -111,7 +111,10 @@ private val onSongClick: (Song) -> Unit
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val song = getItem(position)
+        holder.bind(song)
+        holder.itemView.setOnClickListener { onSongClick(song) }
+
         Log.d("SongsAdapter", "Binding song at position $position")
     }
 

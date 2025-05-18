@@ -21,13 +21,16 @@ class MediaPlayerViewModel : ViewModel() {
     val currentSong: LiveData<Song?> get() = _currentSong
 
     private val _isPlaying = MutableLiveData<Boolean>(false)
-    val isPlaying: LiveData<Boolean?> get() = _isPlaying
+    val isPlaying: LiveData<Boolean> get() = _isPlaying
 
     private val _playbackProgress = MutableLiveData<Int>(0)
     val playbackProgress: LiveData<Int> get() = _playbackProgress
 
     private val _playbackDuration = MutableLiveData<Int>(0)
     val playbackDuration: LiveData<Int> get() = _playbackDuration
+
+    private lateinit var songQueue: List<Song>
+    private var currentSongIndex: Int = 0
 
     private val handler = Handler(Looper.getMainLooper())
     private val updateRunnable = object : Runnable {
@@ -41,16 +44,39 @@ class MediaPlayerViewModel : ViewModel() {
         }
     }
 
-    fun playOrToggleSong(context: Context, song: Song) {
+    // 🔁 Установить очередь и начать воспроизведение
+    fun setQueue(context: Context, songs: List<Song>, index: Int = 0) {
+        this.songQueue = songs
+        this.currentSongIndex = index
+        songs.getOrNull(index)?.let { play(context, it) }
+    }
+
+    // ▶️ Воспроизвести конкретный трек
+    fun play(context: Context, song: Song) {
         viewModelScope.launch {
             try {
-                if (_currentSong.value == song && mediaPlayer?.isPlaying == true) {
-                    pause()
-                } else if (_currentSong.value == song && !mediaPlayer?.isPlaying!!) {
-                    resume()
-                } else {
-                    resetAndPlay(context, song)
+                val player = MediaPlayer().apply {
+                    val uri = Uri.parse(song.songPath)
+                    val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
+                        ?: throw IOException("Не удалось открыть файл")
+
+                    setDataSource(descriptor.fileDescriptor)
+                    prepare()
+                    start()
+
+                    setOnCompletionListener {
+                        nextTrack(context)
+                    }
                 }
+
+                mediaPlayer?.release()
+                mediaPlayer = player
+                _currentSong.postValue(song)
+                _isPlaying.postValue(true)
+
+                _playbackDuration.postValue(player.duration)
+                handler.removeCallbacks(updateRunnable)
+                handler.post(updateRunnable)
             } catch (e: Exception) {
                 Log.e("MediaPlayerViewModel", "Ошибка воспроизведения", e)
                 Toast.makeText(context, "Не удалось воспроизвести ${song.title}", Toast.LENGTH_SHORT).show()
@@ -58,45 +84,39 @@ class MediaPlayerViewModel : ViewModel() {
         }
     }
 
-    private fun resetAndPlay(context: Context, song: Song) {
-        mediaPlayer?.release()
-        mediaPlayer = null
-        _currentSong.postValue(song)
-
-        val uri = Uri.parse(song.songPath)
-        val descriptor = context.contentResolver.openFileDescriptor(uri, "r")
-            ?: throw IOException("Не удалось открыть файл")
-
-        val player = MediaPlayer().apply {
-            setDataSource(descriptor.fileDescriptor)
-            prepare()
-            start()
-
-            setOnCompletionListener {
-                stopCurrentSong()
-            }
+    // ⏭ Перейти к следующему треку
+    fun nextTrack(context: Context) {
+        if (currentSongIndex + 1 < songQueue.size) {
+            currentSongIndex++
+            play(context, songQueue[currentSongIndex])
+        } else {
+            stopCurrentSong()
         }
-
-        descriptor.close()
-        mediaPlayer = player
-        _isPlaying.postValue(true)
-
-        _playbackDuration.postValue(player.duration)
-        handler.post(updateRunnable)
     }
 
-    fun resume() {
-        mediaPlayer?.start()
-        _isPlaying.postValue(true)
-        handler.post(updateRunnable)
+    // ⏮ Перейти к предыдущему треку
+    fun prevTrack(context: Context) {
+        if (currentSongIndex - 1 >= 0) {
+            currentSongIndex--
+            play(context, songQueue[currentSongIndex])
+        }
     }
 
+    // ⏸ Поставить на паузу
     fun pause() {
         mediaPlayer?.pause()
         _isPlaying.postValue(false)
         handler.removeCallbacks(updateRunnable)
     }
 
+    // ▶️ Возобновить
+    fun resume(context: Context) {
+        mediaPlayer?.start()
+        _isPlaying.postValue(true)
+        handler.post(updateRunnable)
+    }
+
+    // ⏹ Остановить плеер
     fun stopCurrentSong() {
         mediaPlayer?.release()
         mediaPlayer = null
@@ -107,7 +127,22 @@ class MediaPlayerViewModel : ViewModel() {
         handler.removeCallbacks(updateRunnable)
     }
 
-    fun onCided() {
+    // 🔄 Для кликов с кнопок
+    fun onPlayPauseClick(context: Context) {
+        if (_isPlaying.value == true) {
+            pause()
+        } else {
+            mediaPlayer?.let {
+                resume(context)
+            } ?: run {
+                _currentSong.value?.let { song ->
+                    play(context, song)
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
         super.onCleared()
         mediaPlayer?.release()
         handler.removeCallbacks(updateRunnable)

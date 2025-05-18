@@ -63,7 +63,8 @@ class SongsFragment : Fragment() {
         }
 
         adapter = SongsAdapter { song ->
-            playerViewModel.playOrToggleSong(requireContext(), song)
+            val allSongs = viewModel.songs.value ?: return@SongsAdapter
+            playerViewModel.setQueue(requireContext(), allSongs, allSongs.indexOf(song))
         }
 
         binding.recyclerViewSongs.apply {
@@ -119,7 +120,7 @@ class SongsFragment : Fragment() {
             } else {
                 binding.playerPlayPause.setImageResource(R.drawable.baseline_pause_24)
                 binding.playerPlayPause.tag = "playing"
-                playerViewModel.resume()
+                playerViewModel.resume(requireContext())
             }
         }
 
@@ -138,6 +139,15 @@ class SongsFragment : Fragment() {
             binding.playerPlayPause.setImageResource(
                 if (playing == true) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
             )
+        }
+
+
+        binding.playerNext.setOnClickListener {
+            playerViewModel.nextTrack(requireContext())
+        }
+
+        binding.playerPrev.setOnClickListener {
+            playerViewModel.prevTrack(requireContext())
         }
     }
 

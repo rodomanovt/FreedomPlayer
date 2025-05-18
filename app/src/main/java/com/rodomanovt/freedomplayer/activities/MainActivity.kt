@@ -11,7 +11,7 @@ class MainActivity : AppCompatActivity() {
 
         var activityLaunchIntent: Intent? = null
 
-        activityLaunchIntent = Intent(this, DownloaderActivity::class.java)
+        activityLaunchIntent = Intent(this, PlayerActivity::class.java)
 
         while (true) {
             startActivity(activityLaunchIntent)

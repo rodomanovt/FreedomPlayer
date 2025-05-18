@@ -63,7 +63,7 @@ class SongsFragment : Fragment() {
         }
 
         adapter = SongsAdapter { song ->
-            playerViewModel.playSong(requireContext(), song)
+            playerViewModel.playOrToggleSong(requireContext(), song)
         }
 
         binding.recyclerViewSongs.apply {
@@ -103,7 +103,7 @@ class SongsFragment : Fragment() {
         binding.playerTitle.text = song.title
         binding.playerArtist.text = song.artist
         loadAlbumArt(song, binding.playerAlbumArt)
-        binding.playerPlayPause.setImageResource(R.drawable.baseline_menu_24)
+        binding.playerPlayPause.setImageResource(R.drawable.baseline_pause_24)
         binding.playerPlayPause.tag = "playing"
 
 //        binding.playerCard.setOnClickListener {
@@ -113,15 +113,38 @@ class SongsFragment : Fragment() {
 
         binding.playerPlayPause.setOnClickListener {
             if (binding.playerPlayPause.tag == "playing") {
-                binding.playerPlayPause.setImageResource(R.drawable.baseline_arrow_right_24)
+                binding.playerPlayPause.setImageResource(R.drawable.baseline_play_arrow_24)
                 binding.playerPlayPause.tag = "paused"
-                playerViewModel.stopCurrentSong()
+                playerViewModel.pause()
             } else {
-                binding.playerPlayPause.setImageResource(R.drawable.baseline_menu_24)
+                binding.playerPlayPause.setImageResource(R.drawable.baseline_pause_24)
                 binding.playerPlayPause.tag = "playing"
-                song?.let { playerViewModel.playSong(requireContext(), it) }
+                playerViewModel.resume()
             }
         }
+
+        playerViewModel.playbackProgress.observe(viewLifecycleOwner) { position ->
+            binding.playerProgressBar.progress = position
+            binding.playerCurrentTime.text = formatDuration(position.toLong())
+        }
+
+        playerViewModel.playbackDuration.observe(viewLifecycleOwner) { duration ->
+            binding.playerProgressBar.min = 0
+            binding.playerProgressBar.max = duration
+        }
+
+        // Обновляем кнопку проигрывания
+        playerViewModel.isPlaying.observe(viewLifecycleOwner) { playing ->
+            binding.playerPlayPause.setImageResource(
+                if (playing == true) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
+            )
+        }
+    }
+
+    private fun formatDuration(millis: Long): String {
+        val seconds = (millis / 1000) % 60
+        val minutes = (millis / (1000 * 60)) % 60
+        return String.format("%02d:%02d", minutes, seconds)
     }
 
     private fun getPlaylistNameFromUri(uri: Uri): String {

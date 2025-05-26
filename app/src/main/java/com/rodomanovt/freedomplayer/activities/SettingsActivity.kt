@@ -29,7 +29,6 @@ class SettingsActivity : AppCompatActivity(), NavigationView.OnNavigationItemSel
     }
 
     override fun onNavigationItemSelected(item: MenuItem):Boolean {
-        Toast.makeText(this, "click", Toast.LENGTH_SHORT).show()
 
         var activityLaunchIntent: Intent? = null
 

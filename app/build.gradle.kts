@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    id ("kotlin-kapt")
 }
 
 android {
@@ -58,4 +59,9 @@ dependencies {
     implementation(libs.androidx.navigation.dynamic.features.ktx)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation (libs.androidx.room.runtime)
+    annotationProcessor (libs.androidx.room.compiler)
+    kapt (libs.androidx.room.compiler)
+    implementation (libs.androidx.room.ktx)
+    implementation (libs.glide)
 }

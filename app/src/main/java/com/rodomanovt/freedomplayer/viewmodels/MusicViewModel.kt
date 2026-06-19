@@ -3,6 +3,7 @@ package com.rodomanovt.freedomplayer.viewmodels
 import android.app.Application
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.util.Log
 import android.widget.ImageView
 import androidx.documentfile.provider.DocumentFile
@@ -12,6 +13,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.bumptech.glide.Glide
 import com.rodomanovt.freedomplayer.R
+import com.rodomanovt.freedomplayer.helpers.PrefsHelper
 import com.rodomanovt.freedomplayer.model.Playlist
 import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.repos.MusicRepository
@@ -26,6 +28,8 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     val playlists: LiveData<List<Playlist>> = _playlists
     private val _songs = MutableLiveData<List<Song>>()
     val songs: LiveData<List<Song>> = _songs
+    private val _isReindexing = MutableLiveData(false)
+    val isReindexing: LiveData<Boolean> = _isReindexing
 
     fun loadExistingAndCheckForNewPlaylists(rootFolderUri: Uri) {
         viewModelScope.launch {
@@ -39,27 +43,89 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun reindexAllPlaylists(rootFolderUri: Uri) {
+        viewModelScope.launch {
+            if (_isReindexing.value == true) return@launch
+            _isReindexing.value = true
+            try {
+                val reindexedPlaylists = repository.reindexAllPlaylists(rootFolderUri)
+                _playlists.value = reindexedPlaylists
+            } catch (e: Exception) {
+                Log.e("MusicViewModel", "Ошибка переиндексации плейлистов", e)
+            } finally {
+                _isReindexing.value = false
+            }
+        }
+    }
+
 
     fun loadSongs(folderUri: Uri) {
         viewModelScope.launch {
             try {
-                val folder = DocumentFile.fromTreeUri(app, folderUri)
+                val folder = resolveFolder(folderUri)
                 if (folder != null && folder.exists()) {
                     val songsFromDb = repository.getSongsFromDb(folderUri.toString())
                     if (songsFromDb.isNotEmpty()) {
-                        _songs.postValue(songsFromDb)
+                        _songs.value = songsFromDb
                     } else {
-                        val scannedSongs = repository.scanAndSaveSongs(folder)
-                        _songs.postValue(scannedSongs)
+                        _songs.value = emptyList()
+                        val scannedSongs = repository.scanAndSaveSongs(folder) { indexedSongs ->
+                            viewModelScope.launch(Dispatchers.Main.immediate) {
+                                _songs.value = indexedSongs
+                            }
+                        }
+                        _songs.value = scannedSongs
                     }
                 } else {
-                    _songs.postValue(emptyList())
+                    _songs.value = emptyList()
                     Log.e("MusicViewModel", "Folder not accessible")
                 }
             } catch (e: Exception) {
-                _songs.postValue(emptyList())
+                _songs.value = emptyList()
                 Log.e("MusicViewModel", "Error loading songs", e)
             }
+        }
+    }
+
+    private fun resolveFolder(folderUri: Uri): DocumentFile? {
+        PrefsHelper(app).getRootFolderUri()?.let { rootTreeUri ->
+            val root = DocumentFile.fromTreeUri(app, rootTreeUri)
+            if (root != null && root.exists()) {
+                findFolderUnderRoot(root, rootTreeUri, folderUri)?.let { return it }
+            }
+        }
+
+        return DocumentFile.fromTreeUri(app, folderUri)
+            ?: DocumentFile.fromSingleUri(app, folderUri)
+    }
+
+    private fun findFolderUnderRoot(
+        root: DocumentFile,
+        rootTreeUri: Uri,
+        targetUri: Uri
+    ): DocumentFile? {
+        return try {
+            val rootDocId = DocumentsContract.getTreeDocumentId(rootTreeUri)
+            val targetDocId = DocumentsContract.getDocumentId(targetUri)
+
+            if (targetDocId == rootDocId) return root
+            if (!targetDocId.startsWith(rootDocId)) return null
+
+            val relativePath = targetDocId.removePrefix(rootDocId).trimStart('/')
+            if (relativePath.isBlank()) return root
+
+            var current = root
+            for (segment in relativePath.split('/').filter { it.isNotBlank() }) {
+                val next = current.listFiles().firstOrNull { it.name == segment }
+                    ?: return null
+                if (!next.isDirectory) return null
+                current = next
+            }
+
+            current
+        } catch (e: Exception) {
+            Log.e("MusicViewModel", "Ошибка поиска папки внутри корня", e)
+            null
         }
     }
 

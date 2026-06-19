@@ -26,6 +26,7 @@ class PlaylistsFragment : Fragment() {
     private lateinit var binding: FragmentPlaylistsBinding
     private val viewModel: MusicViewModel by viewModels()
     private lateinit var adapter: PlaylistAdapter
+    private var rootFolderUri: Uri? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -52,13 +53,30 @@ class PlaylistsFragment : Fragment() {
             adapter = this@PlaylistsFragment.adapter
         }
 
-        PrefsHelper(requireContext()).getRootFolderUri()?.let { uri ->
+        rootFolderUri = PrefsHelper(requireContext()).getRootFolderUri()
+
+        binding.buttonReindexPlaylists.setOnClickListener {
+            val uri = rootFolderUri
+            if (uri != null) {
+                Toast.makeText(requireContext(), "Переиндексация запущена", Toast.LENGTH_SHORT).show()
+                viewModel.reindexAllPlaylists(uri)
+            } else {
+                Toast.makeText(requireContext(), "Выберите корневую папку", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        rootFolderUri?.let { uri ->
             Log.d("PlaylistsFragment", "Загружаем существующие и новые плейлисты...")
             viewModel.loadExistingAndCheckForNewPlaylists(uri)
 
             viewModel.playlists.observe(viewLifecycleOwner) { playlists ->
                 Log.d("PlaylistsFragment", "Получено плейлистов: ${playlists.size}")
                 adapter.submitList(playlists)
+            }
+
+            viewModel.isReindexing.observe(viewLifecycleOwner) { isReindexing ->
+                binding.buttonReindexPlaylists.isEnabled = !isReindexing
+                binding.reindexProgress.visibility = if (isReindexing) View.VISIBLE else View.GONE
             }
         } ?: run {
             Log.e("PlaylistsFragment", "Корневая папка не задана")

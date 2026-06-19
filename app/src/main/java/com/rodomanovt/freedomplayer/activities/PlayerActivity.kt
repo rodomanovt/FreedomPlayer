@@ -1,10 +1,13 @@
 package com.rodomanovt.freedomplayer.activities
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.MenuItem
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import com.google.android.material.navigation.NavigationView
 import com.rodomanovt.freedomplayer.R
@@ -13,6 +16,8 @@ import com.rodomanovt.freedomplayer.databinding.ActivityPlayerBinding
 class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     private lateinit var binding: ActivityPlayerBinding
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,6 +26,7 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
         setContentView(binding.root)
 
         binding.navView.setNavigationItemSelectedListener(this)
+        requestNotificationPermissionIfNeeded()
     }
 
     override fun onNavigationItemSelected(item: MenuItem):Boolean {
@@ -48,5 +54,20 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
         }
 
         return true
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+            return
+        }
+
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 }

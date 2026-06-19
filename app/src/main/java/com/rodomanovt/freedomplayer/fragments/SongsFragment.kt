@@ -1,31 +1,25 @@
 package com.rodomanovt.freedomplayer.fragments
 
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.rodomanovt.freedomplayer.R
-import com.rodomanovt.freedomplayer.activities.MainActivity
 import com.rodomanovt.freedomplayer.adapters.SongsAdapter
 import com.rodomanovt.freedomplayer.databinding.FragmentSongsBinding
 import com.rodomanovt.freedomplayer.model.Song
-import com.rodomanovt.freedomplayer.repos.MusicRepository
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbumArt
-import com.rodomanovt.freedomplayer.viewmodels.SettingsDownloaderViewModel
 
 class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
@@ -47,8 +41,8 @@ class SongsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupUI()
-        loadSongs()
         setupObservers()
+        loadSongs()
     }
 
     private fun setupUI() {
@@ -79,12 +73,7 @@ class SongsFragment : Fragment() {
     private fun loadSongs() {
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
-            val folder = DocumentFile.fromTreeUri(requireContext(), folderUri)
-            if (folder != null && folder.canRead()) {
-                viewModel.loadSongs(folderUri)
-            } else {
-                showError("Нет доступа к папке")
-            }
+            viewModel.loadSongs(folderUri)
         }
     }
 

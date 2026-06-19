@@ -9,13 +9,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        var activityLaunchIntent: Intent? = null
-
-        activityLaunchIntent = Intent(this, PlayerActivity::class.java)
-
-        while (true) {
-            startActivity(activityLaunchIntent)
-        }
+        startActivity(Intent(this, PlayerActivity::class.java))
+        finish()
 
         // start DownloaderActivity or SettingsActivity according to default startup page setting
     }

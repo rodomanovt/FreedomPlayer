@@ -19,6 +19,12 @@
 
     <string name="activityPlayer">Music player</string>
     <string name="activityDownloader">Music downloader</string>
+    <string name="playback_channel_name">Playback controls</string>
+    <string name="playback_channel_description">Shows current track and playback controls</string>
+    <string name="notification_playback_title">Now playing</string>
+    <string name="notification_playback_paused">Playback paused</string>
+    <string name="pausePlayback">Pause</string>
+    <string name="resumePlayback">Play</string>
 
     <string name="formatMP3">.mp3</string>
     <string name="formatOpus">.opus</string>

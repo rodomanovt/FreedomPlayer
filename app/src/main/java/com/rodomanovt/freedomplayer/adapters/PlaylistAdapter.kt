@@ -31,13 +31,19 @@ class PlaylistAdapter(
 
         fun bind(playlist: Playlist) {
             nameView.text = playlist.name
-            countView.text = "${playlist.tracksCount} треков"
+            countView.text = if (playlist.tracksCount > 0) {
+                "${playlist.tracksCount} треков"
+            } else {
+                "Треки не индексированы"
+            }
             itemView.setOnClickListener { onPlaylistClick(playlist) }
         }
     }
 
     object PlaylistComparator : DiffUtil.ItemCallback<Playlist>() {
-        override fun areItemsTheSame(oldItem: Playlist, newItem: Playlist) = oldItem.name == newItem.name
+        override fun areItemsTheSame(oldItem: Playlist, newItem: Playlist) =
+            oldItem.folderUri == newItem.folderUri
+
         override fun areContentsTheSame(oldItem: Playlist, newItem: Playlist) = oldItem == newItem
     }
 }

@@ -286,9 +286,9 @@ class MusicPlaybackService : Service() {
             dispatchDurationChanged()
             dispatchProgressChanged()
             dispatchIsPlayingChanged()
-            startProgressUpdates()
             startForeground(NOTIFICATION_ID, buildNotification())
             playbackData.player.start()
+            startProgressUpdates()
         } catch (e: Exception) {
             Log.e(TAG, "Unable to start playback", e)
             notifyError("Не удалось воспроизвести ${song.title}")

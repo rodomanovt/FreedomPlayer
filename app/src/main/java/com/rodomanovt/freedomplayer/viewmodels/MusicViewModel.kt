@@ -67,6 +67,16 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                     val songsFromDb = repository.getSongsFromDb(folderUri.toString())
                     if (songsFromDb.isNotEmpty()) {
                         _songs.value = songsFromDb
+                        if (needsMetadataRefresh(songsFromDb)) {
+                            viewModelScope.launch {
+                                val enrichedSongs = repository.enrichSongsMetadata(folder, songsFromDb) { indexedSongs ->
+                                    viewModelScope.launch(Dispatchers.Main.immediate) {
+                                        _songs.value = indexedSongs
+                                    }
+                                }
+                                _songs.value = enrichedSongs
+                            }
+                        }
                     } else {
                         _songs.value = emptyList()
                         val scannedSongs = repository.scanAndSaveSongs(folder) { indexedSongs ->
@@ -75,6 +85,16 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                             }
                         }
                         _songs.value = scannedSongs
+                        if (scannedSongs.isNotEmpty()) {
+                            viewModelScope.launch {
+                                val enrichedSongs = repository.enrichSongsMetadata(folder, scannedSongs) { indexedSongs ->
+                                    viewModelScope.launch(Dispatchers.Main.immediate) {
+                                        _songs.value = indexedSongs
+                                    }
+                                }
+                                _songs.value = enrichedSongs
+                            }
+                        }
                     }
                 } else {
                     _songs.value = emptyList()
@@ -97,6 +117,10 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
 
         return DocumentFile.fromTreeUri(app, folderUri)
             ?: DocumentFile.fromSingleUri(app, folderUri)
+    }
+
+    private fun needsMetadataRefresh(songs: List<Song>): Boolean {
+        return songs.any { it.artist.isBlank() || it.duration == 0L }
     }
 
     private fun findFolderUnderRoot(

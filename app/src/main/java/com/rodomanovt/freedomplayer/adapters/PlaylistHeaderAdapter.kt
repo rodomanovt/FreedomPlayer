@@ -6,14 +6,13 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.recyclerview.widget.DiffUtil
-import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.rodomanovt.freedomplayer.R
-import com.rodomanovt.freedomplayer.model.Playlist
+import com.rodomanovt.freedomplayer.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,81 +21,62 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
-class PlaylistAdapter(
-    private val onPlaylistClick: (Playlist) -> Unit
-) : ListAdapter<Playlist, PlaylistAdapter.ViewHolder>(PlaylistComparator) {
+class PlaylistHeaderAdapter(
+    private val onPlayClick: (List<Song>) -> Unit
+) : RecyclerView.Adapter<PlaylistHeaderAdapter.ViewHolder>() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val artworkCache = ConcurrentHashMap<String, SongArtwork>()
+    private var playlistName: String = ""
+    private var songs: List<Song> = emptyList()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.card_playlist, parent, false)
+            .inflate(R.layout.item_playlist_header, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(playlistName, songs)
     }
+
+    override fun getItemCount(): Int = 1
 
     override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
         super.onDetachedFromRecyclerView(recyclerView)
         scope.coroutineContext.cancelChildren()
     }
 
+    fun submitPlaylist(name: String, songs: List<Song>) {
+        playlistName = name
+        this.songs = songs
+        notifyDataSetChanged()
+    }
+
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val nameView: TextView = itemView.findViewById(R.id.textViewPlaylistName)
-        private val countView: TextView = itemView.findViewById(R.id.textViewTracksCount)
-        private val placeholderView: ImageView = itemView.findViewById(R.id.imageViewPlaylistPlaceholder)
-        private val collageContainer: View = itemView.findViewById(R.id.layoutPlaylistCollage)
-        private val coverViews = listOf(
-            itemView.findViewById<ImageView>(R.id.imageViewPlaylistCoverTopLeft),
-            itemView.findViewById<ImageView>(R.id.imageViewPlaylistCoverTopRight),
-            itemView.findViewById<ImageView>(R.id.imageViewPlaylistCoverBottomLeft),
-            itemView.findViewById<ImageView>(R.id.imageViewPlaylistCoverBottomRight)
-        )
+        private val coverTopLeft: ImageView = itemView.findViewById(R.id.coverTopLeft)
+        private val coverTopRight: ImageView = itemView.findViewById(R.id.coverTopRight)
+        private val coverBottomLeft: ImageView = itemView.findViewById(R.id.coverBottomLeft)
+        private val coverBottomRight: ImageView = itemView.findViewById(R.id.coverBottomRight)
+        private val titleView: TextView = itemView.findViewById(R.id.textPlaylistTitle)
+        private val playButton: Button = itemView.findViewById(R.id.buttonPlayPlaylist)
 
-        fun bind(playlist: Playlist) {
-            nameView.text = playlist.name
-            countView.text = if (playlist.tracksCount > 0) {
-                "${playlist.tracksCount} треков"
-            } else {
-                "Треки не индексированы"
+        fun bind(name: String, songs: List<Song>) {
+            titleView.text = name
+            playButton.isEnabled = songs.isNotEmpty()
+            playButton.setOnClickListener { onPlayClick(songs) }
+
+            val coverViews = listOf(coverTopLeft, coverTopRight, coverBottomLeft, coverBottomRight)
+            coverViews.forEach { view ->
+                view.tag = null
+                view.setImageResource(R.drawable.baseline_queue_music_24)
             }
 
-            itemView.setOnClickListener { onPlaylistClick(playlist) }
-            itemView.tag = playlist.folderUri.toString()
-
-            bindCover(playlist)
-        }
-
-        private fun bindCover(playlist: Playlist) {
-            coverViews.forEach { it.tag = null }
-
-            val topSongs = playlist.songs.take(4)
-            val hasIndexedSongs = playlist.tracksCount > 0 && topSongs.isNotEmpty()
-
-            if (!hasIndexedSongs) {
-                placeholderView.visibility = View.VISIBLE
-                collageContainer.visibility = View.GONE
-                coverViews.forEach { it.setImageResource(R.drawable.baseline_queue_music_24) }
-                return
-            }
-
-            placeholderView.visibility = View.GONE
-            collageContainer.visibility = View.VISIBLE
-
-            coverViews.forEachIndexed { index, imageView ->
-                val song = topSongs.getOrNull(index)
-                if (song == null) {
-                    imageView.setImageResource(R.drawable.baseline_queue_music_24)
-                    imageView.tag = null
-                } else {
-                    bindSongCover(imageView, song.songPath)
-                }
+            songs.take(4).forEachIndexed { index, song ->
+                bindCover(coverViews[index], song.songPath)
             }
         }
 
-        private fun bindSongCover(imageView: ImageView, songPath: String) {
+        private fun bindCover(imageView: ImageView, songPath: String) {
             imageView.tag = songPath
             imageView.setImageResource(R.drawable.baseline_queue_music_24)
 
@@ -107,9 +87,7 @@ class PlaylistAdapter(
             }
 
             scope.launch {
-                val artwork = withContext(Dispatchers.IO) {
-                    readArtwork(itemView.context, songPath)
-                }
+                val artwork = withContext(Dispatchers.IO) { readArtwork(itemView.context, songPath) }
                 artworkCache[songPath] = artwork
                 applyArtwork(imageView, songPath, artwork)
             }
@@ -151,18 +129,11 @@ class PlaylistAdapter(
             }
 
             SongArtwork(retriever.embeddedPicture)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             SongArtwork(null)
         } finally {
             retriever.release()
         }
-    }
-
-    object PlaylistComparator : DiffUtil.ItemCallback<Playlist>() {
-        override fun areItemsTheSame(oldItem: Playlist, newItem: Playlist) =
-            oldItem.folderUri == newItem.folderUri
-
-        override fun areContentsTheSame(oldItem: Playlist, newItem: Playlist) = oldItem == newItem
     }
 
     data class SongArtwork(val bytes: ByteArray?)

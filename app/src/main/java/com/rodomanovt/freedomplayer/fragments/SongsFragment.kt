@@ -11,10 +11,12 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.adapters.SongsAdapter
+import com.rodomanovt.freedomplayer.adapters.PlaylistHeaderAdapter
 import com.rodomanovt.freedomplayer.databinding.FragmentSongsBinding
 import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
@@ -24,6 +26,7 @@ import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbu
 class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
     private lateinit var adapter: SongsAdapter
+    private lateinit var headerAdapter: PlaylistHeaderAdapter
     private val viewModel: MusicViewModel by viewModels()
     private val playerViewModel: MediaPlayerViewModel by activityViewModels()
     private var playlistName: String = ""
@@ -50,10 +53,16 @@ class SongsFragment : Fragment() {
             findNavController().navigateUp()
         }
 
+        headerAdapter = PlaylistHeaderAdapter { songs ->
+            if (songs.isNotEmpty()) {
+                playerViewModel.setQueue(requireContext(), songs, 0)
+            }
+        }
+
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
             playlistName = getPlaylistNameFromUri(folderUri)
-            binding.playlistNameText.text = playlistName
+            headerAdapter.submitPlaylist(playlistName, emptyList())
         }
 
         adapter = SongsAdapter { song ->
@@ -63,11 +72,27 @@ class SongsFragment : Fragment() {
 
         binding.recyclerViewSongs.apply {
             layoutManager = LinearLayoutManager(requireContext())
-            adapter = this@SongsFragment.adapter
+            adapter = ConcatAdapter(headerAdapter, this@SongsFragment.adapter)
             addItemDecoration(DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL))
         }
 
         binding.playerCard.visibility = View.GONE
+
+        binding.playerPlayPause.setOnClickListener {
+            if (playerViewModel.isPlaying.value == true) {
+                playerViewModel.pause()
+            } else {
+                playerViewModel.resume(requireContext())
+            }
+        }
+
+        binding.playerNext.setOnClickListener {
+            playerViewModel.nextTrack(requireContext())
+        }
+
+        binding.playerPrev.setOnClickListener {
+            playerViewModel.prevTrack(requireContext())
+        }
     }
 
     private fun loadSongs() {
@@ -80,37 +105,13 @@ class SongsFragment : Fragment() {
     private fun setupObservers() {
         viewModel.songs.observe(viewLifecycleOwner) { songs ->
             adapter.submitList(songs)
+            headerAdapter.submitPlaylist(playlistName, songs)
             //binding.emptyStateView.visibility = if (songs.isEmpty()) View.VISIBLE else View.GONE
         }
 
         playerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
             song?.let { updateBottomPlayer(it) }
             binding.playerCard.visibility = if (song != null) View.VISIBLE else View.GONE
-        }
-    }
-
-    private fun updateBottomPlayer(song: Song) {
-        binding.playerTitle.text = song.title
-        binding.playerArtist.text = song.artist
-        loadAlbumArt(song, binding.playerAlbumArt)
-        binding.playerPlayPause.setImageResource(R.drawable.baseline_pause_24)
-        binding.playerPlayPause.tag = "playing"
-
-//        binding.playerCard.setOnClickListener {
-//            // Навигация к полноценному плееру
-//            findNavController().navigate(R.id.action_songsFragment_to_playerFragment)
-//        }
-
-        binding.playerPlayPause.setOnClickListener {
-            if (binding.playerPlayPause.tag == "playing") {
-                binding.playerPlayPause.setImageResource(R.drawable.baseline_play_arrow_24)
-                binding.playerPlayPause.tag = "paused"
-                playerViewModel.pause()
-            } else {
-                binding.playerPlayPause.setImageResource(R.drawable.baseline_pause_24)
-                binding.playerPlayPause.tag = "playing"
-                playerViewModel.resume(requireContext())
-            }
         }
 
         playerViewModel.playbackProgress.observe(viewLifecycleOwner) { position ->
@@ -129,15 +130,12 @@ class SongsFragment : Fragment() {
                 if (playing == true) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
             )
         }
+    }
 
-
-        binding.playerNext.setOnClickListener {
-            playerViewModel.nextTrack(requireContext())
-        }
-
-        binding.playerPrev.setOnClickListener {
-            playerViewModel.prevTrack(requireContext())
-        }
+    private fun updateBottomPlayer(song: Song) {
+        binding.playerTitle.text = song.title
+        binding.playerArtist.text = song.artist
+        loadAlbumArt(song, binding.playerAlbumArt)
     }
 
     private fun formatDuration(millis: Long): String {

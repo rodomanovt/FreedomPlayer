@@ -15,16 +15,62 @@
         android:orientation="horizontal"
         android:padding="16dp">
 
-        <ImageView
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/baseline_queue_music_24" />
+        <FrameLayout
+            android:layout_width="64dp"
+            android:layout_height="64dp">
+
+            <ImageView
+                android:id="@+id/imageViewPlaylistPlaceholder"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/baseline_queue_music_24" />
+
+            <FrameLayout
+                android:id="@+id/layoutPlaylistCollage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <ImageView
+                    android:id="@+id/imageViewPlaylistCoverTopLeft"
+                    android:layout_width="31dp"
+                    android:layout_height="31dp"
+                    android:layout_gravity="top|start"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/baseline_queue_music_24" />
+
+                <ImageView
+                    android:id="@+id/imageViewPlaylistCoverTopRight"
+                    android:layout_width="31dp"
+                    android:layout_height="31dp"
+                    android:layout_gravity="top|end"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/baseline_queue_music_24" />
+
+                <ImageView
+                    android:id="@+id/imageViewPlaylistCoverBottomLeft"
+                    android:layout_width="31dp"
+                    android:layout_height="31dp"
+                    android:layout_gravity="bottom|start"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/baseline_queue_music_24" />
+
+                <ImageView
+                    android:id="@+id/imageViewPlaylistCoverBottomRight"
+                    android:layout_width="31dp"
+                    android:layout_height="31dp"
+                    android:layout_gravity="bottom|end"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/baseline_queue_music_24" />
+            </FrameLayout>
+        </FrameLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginStart="16dp">
+            android:layout_marginStart="16dp"
+            android:orientation="vertical">
 
             <TextView
                 android:id="@+id/textViewPlaylistName"
@@ -44,4 +90,3 @@
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>
-

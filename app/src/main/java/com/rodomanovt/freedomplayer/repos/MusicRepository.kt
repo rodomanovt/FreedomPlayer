@@ -1,6 +1,7 @@
 package com.rodomanovt.freedomplayer.repos
 
 import android.content.Context
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
@@ -18,7 +19,7 @@ class MusicRepository(private val context: Context) {
     private val songDao = db.songDao()
 
     suspend fun getPlaylistsFromDb(): List<Playlist> = withContext(Dispatchers.IO) {
-        playlistDao.getAll().map { it.toDomain() }
+        playlistDao.getAll().map { it.toDomain(loadSongs = true) }
     }
 
     suspend fun syncPlaylistsFromRoot(rootFolderUri: Uri): List<Playlist> = withContext(Dispatchers.IO) {
@@ -31,7 +32,9 @@ class MusicRepository(private val context: Context) {
         rootFolder.listFiles().forEach { folder ->
             if (folder.isDirectory && folder.name?.startsWith('.') != true) {
                 val cachedPlaylist = cachedPlaylists[folder.uri.toString()]
-                val playlist = cachedPlaylist?.toDomain()
+                val playlist = cachedPlaylist?.let {
+                    it.toDomain(loadSongs = it.tracksCount > 0)
+                }
                     ?: Playlist(
                         name = folder.name ?: "Unnamed",
                         tracksCount = 0,
@@ -77,16 +80,46 @@ class MusicRepository(private val context: Context) {
         folder.listFiles().forEach { file ->
             if (file.isFile && isAudioFile(file)) {
                 val song = readSong(file, folder)
-                songs.add(song)
+                insertSongByModifiedTime(songs, song)
                 songDao.insertAll(listOf(song.toEntity()))
                 onProgress(songs.toList())
                 Log.d("MusicRepository", "Indexed file ${song.songPath}")
-            }
-            else {
+            } else {
                 Log.d(
                     "MusicRepository",
                     "Skipped file name=${file.name}, isFile=${file.isFile}, type=${file.type}"
                 )
+            }
+        }
+
+        persistPlaylistMetadata(
+            Playlist(
+                name = folder.name ?: "Unnamed",
+                tracksCount = songs.size,
+                folderUri = folder.uri,
+                songs = emptyList()
+            )
+        )
+
+        songs
+    }
+
+    suspend fun enrichSongsMetadata(
+        folder: DocumentFile,
+        currentSongs: List<Song>,
+        onProgress: (List<Song>) -> Unit
+    ): List<Song> = withContext(Dispatchers.IO) {
+        val songs = currentSongs.toMutableList()
+
+        Log.d("MusicRepository", "Начинаем обогащение метаданных папки: ${folder.name}")
+
+        folder.listFiles().forEach { file ->
+            if (file.isFile && isAudioFile(file)) {
+                val song = readSongWithMetadata(file, folder)
+                songDao.insertAll(listOf(song.toEntity()))
+                upsertSongByPath(songs, song)
+                onProgress(songs.toList())
+                Log.d("MusicRepository", "Enriched file ${song.songPath}")
             }
         }
 
@@ -122,7 +155,7 @@ class MusicRepository(private val context: Context) {
                     name = folder.name ?: "Unnamed",
                     tracksCount = indexedSongs.size,
                     folderUri = folder.uri,
-                    songs = emptyList()
+                    songs = indexedSongs.take(4)
                 )
 
                 reindexedPlaylists.add(playlist)
@@ -136,6 +169,21 @@ class MusicRepository(private val context: Context) {
         playlistDao.insert(playlist.toEntity())
     }
 
+    private suspend fun PlaylistEntity.toDomain(loadSongs: Boolean): Playlist {
+        val songs = if (loadSongs && tracksCount > 0) {
+            songDao.getTopSongsByFolder(folderUri).map { it.toDomain() }
+        } else {
+            emptyList()
+        }
+
+        return Playlist(
+            name = name,
+            tracksCount = tracksCount,
+            folderUri = Uri.parse(folderUri),
+            songs = songs
+        )
+    }
+
     private fun scanSongs(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
 
@@ -144,7 +192,7 @@ class MusicRepository(private val context: Context) {
         folder.listFiles().forEach { file ->
             if (file.isFile && isAudioFile(file)) {
                 val song = readSong(file, folder)
-                songs.add(song)
+                insertSongByModifiedTime(songs, song)
                 Log.d("MusicRepository", "Added file ${song.songPath}")
             } else {
                 Log.d(
@@ -168,8 +216,44 @@ class MusicRepository(private val context: Context) {
             artist = "",
             duration = 0L,
             playlistPath = folder.uri.toString(),
-            songPath = file.uri.toString()
+            songPath = file.uri.toString(),
+            lastModified = file.lastModified()
         )
+    }
+
+    private fun readSongWithMetadata(file: DocumentFile, folder: DocumentFile): Song {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
+            pfd?.use {
+                retriever.setDataSource(it.fileDescriptor)
+                val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                    ?.takeIf { value -> value.isNotBlank() }
+                    ?: file.name?.substringBeforeLast('.')?.ifBlank { null }
+                    ?: file.name
+                    ?: "Unknown"
+                val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                    ?.takeIf { value -> value.isNotBlank() }
+                    ?: "Unknown"
+                val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull() ?: 0L
+
+                Song(
+                    id = file.uri.hashCode().toLong(),
+                    title = title,
+                    artist = artist,
+                    duration = duration,
+                    playlistPath = folder.uri.toString(),
+                    songPath = file.uri.toString(),
+                    lastModified = file.lastModified()
+                )
+            } ?: readSong(file, folder)
+        } catch (e: Exception) {
+            Log.e("MusicRepository", "Error enriching metadata for ${file.name}", e)
+            readSong(file, folder)
+        } finally {
+            retriever.release()
+        }
     }
 
     private suspend fun saveSongs(songs: List<Song>) = withContext(Dispatchers.IO) {
@@ -194,14 +278,30 @@ class MusicRepository(private val context: Context) {
             fileName.endsWith(".opus") ||
             fileName.endsWith(".wma")
     }
-}
 
-private fun PlaylistEntity.toDomain(): Playlist = Playlist(
-    name = name,
-    tracksCount = tracksCount,
-    folderUri = Uri.parse(folderUri),
-    songs = emptyList()
-)
+    private fun insertSongByModifiedTime(songs: MutableList<Song>, song: Song) {
+        val comparator = compareByDescending<Song> { it.lastModified }
+            .thenBy { it.title.lowercase() }
+            .thenBy { it.songPath }
+
+        var index = 0
+        while (index < songs.size && comparator.compare(songs[index], song) <= 0) {
+            index++
+        }
+
+        songs.add(index, song)
+    }
+
+    private fun upsertSongByPath(songs: MutableList<Song>, song: Song) {
+        val existingIndex = songs.indexOfFirst { it.songPath == song.songPath }
+        if (existingIndex >= 0) {
+            songs[existingIndex] = song
+            return
+        }
+
+        insertSongByModifiedTime(songs, song)
+    }
+}
 
 private fun SongEntity.toDomain(): Song = Song(
     id = id,
@@ -209,7 +309,8 @@ private fun SongEntity.toDomain(): Song = Song(
     artist = artist,
     duration = duration,
     playlistPath = playlistPath,
-    songPath = songPath
+    songPath = songPath,
+    lastModified = lastModified
 )
 
 private fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
@@ -224,5 +325,6 @@ private fun Song.toEntity(): SongEntity = SongEntity(
     artist = artist,
     duration = duration,
     playlistPath = playlistPath,
-    songPath = songPath
+    songPath = songPath,
+    lastModified = lastModified
 )

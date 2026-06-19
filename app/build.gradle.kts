@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.media)
+    implementation(libs.androidx.recyclerview)
     implementation (libs.androidx.room.runtime)
     annotationProcessor (libs.androidx.room.compiler)
     kapt (libs.androidx.room.compiler)

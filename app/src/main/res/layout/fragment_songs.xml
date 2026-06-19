@@ -25,28 +25,18 @@
                 android:clickable="true"
                 android:padding="10dp"/>
 
-            <TextView
-                android:id="@+id/playlistNameText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/undefined"
-                android:textSize="20sp"
-                android:textAlignment="center"
-                android:padding="10dp"
-                android:layout_gravity="center"/>
-
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerViewSongs"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"/>
 
         <LinearLayout
             android:id="@+id/player_card"
             android:layout_width="match_parent"
-            android:layout_height="70dp"
+            android:layout_height="wrap_content"
             android:orientation="vertical">
 
             <LinearLayout
@@ -75,16 +65,20 @@
 
                     <TextView
                         android:id="@+id/player_title"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:ellipsize="end"
                         android:textStyle="bold"
                         android:textSize="14sp"
                         android:text="Title" />
 
                     <TextView
                         android:id="@+id/player_artist"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:maxLines="1"
+                        android:ellipsize="end"
                         android:text="Artist"
                         android:textSize="12sp" />
                 </LinearLayout>
@@ -125,6 +119,7 @@
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
             android:layout_height="4dp"
+            android:layout_marginTop="4dp"
             android:max="100"
             android:progress="0"
             android:progressTint="#FF0000"

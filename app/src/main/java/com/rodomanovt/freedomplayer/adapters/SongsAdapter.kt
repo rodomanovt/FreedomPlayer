@@ -36,7 +36,7 @@ class SongsAdapter(
 
         fun bind(song: Song) {
             titleView.text = song.title
-            artistView.text = song.artist.ifBlank { "Файл" }
+            artistView.text = song.artist.ifBlank { "Неизвестный исполнитель" }
             durationView.text = if (song.duration > 0) formatDuration(song.duration) else "--:--"
             albumArtView.setImageResource(R.drawable.baseline_music_note_24)
             itemView.tag = song.songPath
@@ -88,8 +88,13 @@ class SongsAdapter(
     private fun applyPreview(holder: ViewHolder, songPath: String, preview: SongPreview) {
         if (holder.itemView.tag != songPath) return
 
+        val artistView = holder.itemView.findViewById<TextView>(R.id.song_artist)
         val durationView = holder.itemView.findViewById<TextView>(R.id.song_duration)
         val albumArtView = holder.itemView.findViewById<ImageView>(R.id.song_cover)
+
+        if (preview.artist.isNotBlank()) {
+            artistView.text = preview.artist
+        }
 
         if (preview.duration > 0) {
             durationView.text = formatDuration(preview.duration)
@@ -109,10 +114,13 @@ class SongsAdapter(
             val pfd = context.contentResolver.openFileDescriptor(Uri.parse(songPath), "r")
             pfd?.use {
                 retriever.setDataSource(it.fileDescriptor)
+                val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
+                    ?.takeIf { value -> value.isNotBlank() }
+                    ?: ""
                 val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: 0L
                 val artBytes = retriever.embeddedPicture
-                SongPreview(duration = duration, artBytes = artBytes)
+                SongPreview(duration = duration, artist = artist, artBytes = artBytes)
             } ?: SongPreview()
         } catch (e: Exception) {
             Log.e("SongsAdapter", "Error loading preview for $songPath", e)
@@ -135,6 +143,7 @@ class SongsAdapter(
 
     data class SongPreview(
         val duration: Long = 0L,
+        val artist: String = "",
         val artBytes: ByteArray? = null
     )
 }

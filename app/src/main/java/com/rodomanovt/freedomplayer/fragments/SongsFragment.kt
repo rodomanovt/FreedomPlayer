@@ -53,11 +53,20 @@ class SongsFragment : Fragment() {
             findNavController().navigateUp()
         }
 
-        headerAdapter = PlaylistHeaderAdapter { songs ->
-            if (songs.isNotEmpty()) {
-                playerViewModel.setQueue(requireContext(), songs, 0)
+        headerAdapter = PlaylistHeaderAdapter(
+            onPlayClick = { songs ->
+                if (songs.isNotEmpty()) {
+                    playerViewModel.setShuffleEnabled(requireContext(), false)
+                    playerViewModel.setQueue(requireContext(), songs, 0)
+                }
+            },
+            onShufflePlayClick = { songs ->
+                if (songs.isNotEmpty()) {
+                    playerViewModel.setShuffleEnabled(requireContext(), true)
+                    playerViewModel.setQueue(requireContext(), songs, 0, startFromRandom = true)
+                }
             }
-        }
+        )
 
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
@@ -77,6 +86,11 @@ class SongsFragment : Fragment() {
         }
 
         binding.playerCard.visibility = View.GONE
+        binding.playerCard.setOnClickListener {
+            if (playerViewModel.currentSong.value != null) {
+                findNavController().navigate(R.id.action_songsFragment_to_trackPlayerFragment)
+            }
+        }
 
         binding.playerPlayPause.setOnClickListener {
             if (playerViewModel.isPlaying.value == true) {
@@ -122,6 +136,10 @@ class SongsFragment : Fragment() {
         playerViewModel.playbackDuration.observe(viewLifecycleOwner) { duration ->
             binding.playerProgressBar.min = 0
             binding.playerProgressBar.max = duration
+        }
+
+        playerViewModel.isShuffleEnabled.observe(viewLifecycleOwner) { enabled ->
+            headerAdapter.setShuffleEnabled(enabled == true)
         }
 
         // Обновляем кнопку проигрывания

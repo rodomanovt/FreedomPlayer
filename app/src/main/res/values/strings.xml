@@ -8,6 +8,11 @@
     <string name="previous">Previous</string>
     <string name="playerText">Music player</string>
     <string name="downloaderText">Music downloader</string>
+    <string name="playPlaylist">Воспроизвести</string>
+    <string name="playPlaylistShuffled">Случайно</string>
+    <string name="shufflePlayback">Shuffle playback</string>
+    <string name="shufflePlaybackEnabled">Shuffle playback enabled</string>
+    <string name="shufflePlaybackDisabled">Shuffle playback disabled</string>
 
     <!-- Spinners content-->
     <string name="themeSystem">System</string>
@@ -25,6 +30,12 @@
     <string name="notification_playback_paused">Playback paused</string>
     <string name="pausePlayback">Pause</string>
     <string name="resumePlayback">Play</string>
+    <string name="track_player_title">Track player</string>
+    <string name="closeTrackPlayer">Close track player</string>
+    <string name="currentTrackTime">Current time</string>
+    <string name="totalTrackTime">Total duration</string>
+    <string name="noTrackPlaying">No track is playing</string>
+    <string name="nextTrackLabel">Next:</string>
 
     <string name="formatMP3">.mp3</string>
     <string name="formatOpus">.opus</string>

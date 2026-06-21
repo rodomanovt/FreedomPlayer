@@ -16,6 +16,9 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
     private val _currentSong = MutableLiveData<Song?>()
     val currentSong: LiveData<Song?> get() = _currentSong
 
+    private val _nextSong = MutableLiveData<Song?>()
+    val nextSong: LiveData<Song?> get() = _nextSong
+
     private val _isPlaying = MutableLiveData(false)
     val isPlaying: LiveData<Boolean> get() = _isPlaying
 
@@ -24,6 +27,9 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
 
     private val _playbackDuration = MutableLiveData(0)
     val playbackDuration: LiveData<Int> get() = _playbackDuration
+
+    private val _isShuffleEnabled = MutableLiveData(false)
+    val isShuffleEnabled: LiveData<Boolean> get() = _isShuffleEnabled
 
     private var appContext: Context? = null
     private var boundService: MusicPlaybackService? = null
@@ -63,8 +69,16 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
         )
     }
 
-    fun setQueue(context: Context, songs: List<Song>, index: Int = 0) {
-        submit(context) { service -> service.setQueue(songs, index) }
+    fun setQueue(context: Context, songs: List<Song>, index: Int = 0, startFromRandom: Boolean = false) {
+        submit(context) { service -> service.setQueue(songs, index, startFromRandom) }
+    }
+
+    fun setShuffleEnabled(context: Context, enabled: Boolean) {
+        submit(context) { service -> service.setShuffleEnabled(enabled) }
+    }
+
+    fun toggleShuffle(context: Context) {
+        submit(context) { service -> service.toggleShuffle() }
     }
 
     fun play(context: Context, song: Song) {
@@ -95,8 +109,16 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
         submit(context) { service -> service.onPlayPauseClick() }
     }
 
+    fun seekTo(context: Context, position: Int) {
+        submit(context) { service -> service.seekTo(position) }
+    }
+
     override fun onCurrentSongChanged(song: Song?) {
         _currentSong.postValue(song)
+    }
+
+    override fun onNextSongChanged(song: Song?) {
+        _nextSong.postValue(song)
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -109,6 +131,10 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
 
     override fun onPlaybackDurationChanged(duration: Int) {
         _playbackDuration.postValue(duration)
+    }
+
+    override fun onShuffleModeChanged(enabled: Boolean) {
+        _isShuffleEnabled.postValue(enabled)
     }
 
     override fun onPlaybackError(message: String) {

@@ -76,11 +76,34 @@
         android:textStyle="bold"
         tools:text="Название плейлиста" />
 
-    <Button
-        android:id="@+id/buttonPlayPlaylist"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="Воспроизвести" />
+        android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/buttonPlayPlaylist"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/playPlaylist"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/baseline_play_arrow_24" />
+
+        <ImageButton
+            android:id="@+id/buttonShufflePlaylist"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/playPlaylistShuffled"
+            android:padding="12dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/baseline_shuffle_24" />
+    </LinearLayout>
 
 </LinearLayout>

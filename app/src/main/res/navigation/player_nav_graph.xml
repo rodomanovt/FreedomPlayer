@@ -26,5 +26,12 @@
         <action
             android:id="@+id/action_songsFragment_to_playlistsFragment"
             app:destination="@id/playlistsFragment" />
+        <action
+            android:id="@+id/action_songsFragment_to_trackPlayerFragment"
+            app:destination="@id/trackPlayerFragment" />
     </fragment>
+    <fragment
+        android:id="@+id/trackPlayerFragment"
+        android:name="com.rodomanovt.freedomplayer.fragments.TrackPlayerFragment"
+        android:label="TrackPlayerFragment" />
 </navigation>

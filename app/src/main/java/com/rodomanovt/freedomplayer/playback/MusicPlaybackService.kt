@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -22,6 +24,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.PlaybackStateCompat
 import android.support.v4.media.session.MediaSessionCompat
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.activities.PlayerActivity
@@ -39,9 +42,11 @@ class MusicPlaybackService : Service() {
 
     interface PlaybackCallback {
         fun onCurrentSongChanged(song: Song?)
+        fun onNextSongChanged(song: Song?)
         fun onIsPlayingChanged(isPlaying: Boolean)
         fun onPlaybackProgressChanged(position: Int)
         fun onPlaybackDurationChanged(duration: Int)
+        fun onShuffleModeChanged(enabled: Boolean)
         fun onPlaybackError(message: String)
     }
 
@@ -56,11 +61,14 @@ class MusicPlaybackService : Service() {
 
     private var mediaPlayer: MediaPlayer? = null
     private var songQueue: List<Song> = emptyList()
+    private var playbackQueue: List<Song> = emptyList()
     private var currentSongIndex: Int = 0
     private var currentSong: Song? = null
     private var isPlaying: Boolean = false
+    private var isShuffleEnabled: Boolean = false
     private var playbackDuration: Int = 0
     private var playbackProgress: Int = 0
+    private var currentArtwork: Bitmap? = null
     private var mediaSession: MediaSessionCompat? = null
     private var audioManager: AudioManager? = null
     private lateinit var notificationManager: NotificationManager
@@ -70,9 +78,20 @@ class MusicPlaybackService : Service() {
     private val progressUpdater = object : Runnable {
         override fun run() {
             val player = mediaPlayer
-            if (player?.isPlaying == true) {
-                playbackProgress = player.currentPosition
-                dispatchProgressChanged()
+            val playing = try {
+                player?.isPlaying == true
+            } catch (_: IllegalStateException) {
+                false
+            }
+
+            if (playing) {
+                try {
+                    playbackProgress = player?.currentPosition ?: playbackProgress
+                    updatePlaybackState()
+                    dispatchProgressChanged()
+                } catch (_: IllegalStateException) {
+                    return
+                }
                 handler.postDelayed(this, 1000)
             }
         }
@@ -106,6 +125,10 @@ class MusicPlaybackService : Service() {
 
         override fun onStop() {
             stopCurrentSong()
+        }
+
+        override fun onSeekTo(pos: Long) {
+            seekTo(pos.toInt())
         }
     }
 
@@ -153,24 +176,52 @@ class MusicPlaybackService : Service() {
     fun registerCallback(callback: PlaybackCallback) {
         callbacks.add(callback)
         callback.onCurrentSongChanged(currentSong)
+        callback.onNextSongChanged(getNextSong())
         callback.onIsPlayingChanged(isPlaying)
         callback.onPlaybackProgressChanged(playbackProgress)
         callback.onPlaybackDurationChanged(playbackDuration)
+        callback.onShuffleModeChanged(isShuffleEnabled)
     }
 
     fun unregisterCallback(callback: PlaybackCallback) {
         callbacks.remove(callback)
     }
 
-    fun setQueue(songs: List<Song>, index: Int = 0) {
+    fun setQueue(songs: List<Song>, index: Int = 0, startFromRandom: Boolean = false) {
         songQueue = songs
         if (songs.isEmpty()) {
+            playbackQueue = emptyList()
+            currentSongIndex = 0
             stopCurrentSong()
             return
         }
 
-        currentSongIndex = index.coerceIn(0, songs.lastIndex)
-        songs.getOrNull(currentSongIndex)?.let { play(it) }
+        val startIndex = if (isShuffleEnabled && startFromRandom) {
+            songs.indices.random()
+        } else {
+            index.coerceIn(0, songs.lastIndex)
+        }
+        playbackQueue = buildPlaybackQueue(songs, startIndex)
+        currentSongIndex = 0
+        if (!isShuffleEnabled) {
+            currentSongIndex = startIndex
+        }
+        dispatchQueueStateChanged()
+        playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
+    }
+
+    fun setShuffleEnabled(enabled: Boolean) {
+        if (isShuffleEnabled == enabled) return
+
+        isShuffleEnabled = enabled
+        rebuildPlaybackQueue()
+        dispatchShuffleModeChanged()
+        dispatchQueueStateChanged()
+        updateNotification()
+    }
+
+    fun toggleShuffle() {
+        setShuffleEnabled(!isShuffleEnabled)
     }
 
     fun play(song: Song) {
@@ -180,29 +231,29 @@ class MusicPlaybackService : Service() {
     }
 
     fun nextTrack() {
-        if (songQueue.isEmpty()) return
+        if (playbackQueue.isEmpty()) return
 
-        if (currentSongIndex + 1 < songQueue.size) {
+        if (currentSongIndex + 1 < playbackQueue.size) {
             currentSongIndex++
-            songQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
         } else {
             stopCurrentSong()
         }
     }
 
     fun prevTrack() {
-        if (songQueue.isEmpty()) return
+        if (playbackQueue.isEmpty()) return
 
         if (mediaPlayer?.currentPosition ?: 0 > PREVIOUS_TRACK_THRESHOLD_MS) {
-            songQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
             return
         }
 
         if (currentSongIndex - 1 >= 0) {
             currentSongIndex--
-            songQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
         } else {
-            songQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
         }
     }
 
@@ -216,6 +267,16 @@ class MusicPlaybackService : Service() {
         updatePlaybackState()
         updateNotification()
         dispatchIsPlayingChanged()
+    }
+
+    fun seekTo(position: Int) {
+        val player = mediaPlayer ?: return
+        val safePosition = position.coerceIn(0, playbackDuration.coerceAtLeast(0))
+        player.seekTo(safePosition)
+        playbackProgress = safePosition
+        updatePlaybackState()
+        updateNotification()
+        dispatchProgressChanged()
     }
 
     fun resume() {
@@ -238,12 +299,14 @@ class MusicPlaybackService : Service() {
     fun stopCurrentSong() {
         releasePlayer()
         currentSong = null
+        currentArtwork = null
         playbackProgress = 0
         playbackDuration = 0
         isPlaying = false
         stopProgressUpdates()
         updatePlaybackState()
         dispatchSongChanged()
+        dispatchQueueStateChanged()
         dispatchIsPlayingChanged()
         dispatchProgressChanged()
         dispatchDurationChanged()
@@ -258,7 +321,7 @@ class MusicPlaybackService : Service() {
             player?.isPlaying == true -> pause()
             player != null -> resume()
             currentSong != null -> currentSong?.let { play(it) }
-            songQueue.isNotEmpty() -> songQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            playbackQueue.isNotEmpty() -> playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
         }
     }
 
@@ -277,12 +340,14 @@ class MusicPlaybackService : Service() {
             releasePlayer()
             mediaPlayer = playbackData.player
             currentSong = playbackData.song
+            currentArtwork = playbackData.artwork
             playbackDuration = playbackData.player.duration
             playbackProgress = 0
             isPlaying = true
             updateMediaSessionMetadata(playbackData.song)
             updatePlaybackState()
             dispatchSongChanged()
+            dispatchQueueStateChanged()
             dispatchDurationChanged()
             dispatchProgressChanged()
             dispatchIsPlayingChanged()
@@ -295,6 +360,37 @@ class MusicPlaybackService : Service() {
         }
     }
 
+    private fun rebuildPlaybackQueue() {
+        if (songQueue.isEmpty()) {
+            playbackQueue = emptyList()
+            currentSongIndex = 0
+            return
+        }
+
+        val currentIndex = currentSong?.let { song ->
+            songQueue.indexOfFirst { it.songPath == song.songPath }.takeIf { it >= 0 }
+        } ?: currentSongIndex.coerceIn(0, songQueue.lastIndex)
+
+        playbackQueue = buildPlaybackQueue(songQueue, currentIndex)
+        currentSongIndex = currentSong?.let { song ->
+            playbackQueue.indexOfFirst { it.songPath == song.songPath }.takeIf { it >= 0 }
+        } ?: currentIndex.coerceIn(0, playbackQueue.lastIndex)
+    }
+
+    private fun buildPlaybackQueue(songs: List<Song>, startIndex: Int): List<Song> {
+        if (songs.isEmpty()) return emptyList()
+
+        val safeStartIndex = startIndex.coerceIn(0, songs.lastIndex)
+        if (!isShuffleEnabled) return songs
+
+        val startSong = songs[safeStartIndex]
+        val remainingSongs = songs.toMutableList().apply {
+            removeAt(safeStartIndex)
+        }.shuffled()
+
+        return listOf(startSong) + remainingSongs
+    }
+
     private fun createPlayerAndMetadata(song: Song): PlaybackData {
         val player = MediaPlayer()
         val uri = Uri.parse(song.songPath)
@@ -303,6 +399,7 @@ class MusicPlaybackService : Service() {
 
         val retriever = MediaMetadataRetriever()
         var resolvedSong = song
+        var artwork: Bitmap? = null
 
         descriptor.use { fd ->
             retriever.setDataSource(fd.fileDescriptor)
@@ -318,6 +415,8 @@ class MusicPlaybackService : Service() {
                 ?.toLongOrNull()
                 ?.takeIf { it > 0L }
                 ?: song.duration
+            val artBytes = retriever.embeddedPicture
+            artwork = artBytes?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
 
             resolvedSong = song.copy(
                 title = title,
@@ -335,7 +434,7 @@ class MusicPlaybackService : Service() {
             retriever.release()
         }
 
-        return PlaybackData(player = player, song = resolvedSong)
+        return PlaybackData(player = player, song = resolvedSong, artwork = artwork)
     }
 
     private fun requestAudioFocus(): Boolean {
@@ -376,6 +475,7 @@ class MusicPlaybackService : Service() {
     }
 
     private fun releasePlayer() {
+        stopProgressUpdates()
         mediaPlayer?.run {
             setOnCompletionListener(null)
             runCatching { stop() }
@@ -411,7 +511,30 @@ class MusicPlaybackService : Service() {
     }
 
     private fun updatePlaybackState() {
-        mediaSession?.isActive = true
+        val session = mediaSession ?: return
+        session.isActive = true
+
+        val actions =
+            PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                PlaybackStateCompat.ACTION_PLAY or
+                PlaybackStateCompat.ACTION_PAUSE or
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                PlaybackStateCompat.ACTION_STOP or
+                PlaybackStateCompat.ACTION_SEEK_TO
+
+        val state = if (isPlaying) {
+            PlaybackStateCompat.STATE_PLAYING
+        } else {
+            PlaybackStateCompat.STATE_PAUSED
+        }
+
+        session.setPlaybackState(
+            PlaybackStateCompat.Builder()
+                .setActions(actions)
+                .setState(state, playbackProgress.toLong(), 1f)
+                .build()
+        )
     }
 
     private fun buildNotification(): Notification {
@@ -446,6 +569,7 @@ class MusicPlaybackService : Service() {
             .setContentText(artist)
             .setSubText(if (playing) getString(R.string.notification_playback_title) else getString(R.string.notification_playback_paused))
             .setContentIntent(mainActivityIntent())
+            .setLargeIcon(currentArtwork)
             .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -537,6 +661,11 @@ class MusicPlaybackService : Service() {
         callbacks.forEach { it.onCurrentSongChanged(currentSong) }
     }
 
+    private fun dispatchQueueStateChanged() {
+        val nextSong = getNextSong()
+        callbacks.forEach { it.onNextSongChanged(nextSong) }
+    }
+
     private fun dispatchIsPlayingChanged() {
         callbacks.forEach { it.onIsPlayingChanged(isPlaying) }
     }
@@ -549,9 +678,18 @@ class MusicPlaybackService : Service() {
         callbacks.forEach { it.onPlaybackDurationChanged(playbackDuration) }
     }
 
+    private fun dispatchShuffleModeChanged() {
+        callbacks.forEach { it.onShuffleModeChanged(isShuffleEnabled) }
+    }
+
+    private fun getNextSong(): Song? {
+        return playbackQueue.getOrNull(currentSongIndex + 1)
+    }
+
     private data class PlaybackData(
         val player: MediaPlayer,
-        val song: Song
+        val song: Song,
+        val artwork: Bitmap?
     )
 
     companion object {

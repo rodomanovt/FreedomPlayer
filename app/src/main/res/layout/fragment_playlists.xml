@@ -35,7 +35,7 @@
                 android:contentDescription="Reindex playlists"
                 android:padding="8dp"
                 android:src="@drawable/baseline_refresh_24"
-                android:tint="?attr/colorPrimary" />
+                android:tint="@color/white" />
 
             <ProgressBar
                 android:id="@+id/reindexProgress"

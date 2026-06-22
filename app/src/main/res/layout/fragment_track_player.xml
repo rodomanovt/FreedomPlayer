@@ -151,6 +151,17 @@
                 android:contentDescription="@string/next"
                 android:padding="12dp"
                 android:src="@drawable/baseline_skip_next_24" />
+
+            <ImageButton
+                android:id="@+id/trackLike"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/likeTrack"
+                android:padding="12dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/baseline_favourite_border_24" />
         </LinearLayout>
 
         <LinearLayout

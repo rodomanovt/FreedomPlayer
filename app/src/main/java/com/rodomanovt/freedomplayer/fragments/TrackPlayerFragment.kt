@@ -11,6 +11,7 @@ import androidx.navigation.fragment.findNavController
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.FragmentTrackPlayerBinding
 import com.rodomanovt.freedomplayer.model.Song
+import com.rodomanovt.freedomplayer.viewmodels.FavoritesViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbumArt
@@ -18,7 +19,9 @@ import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbu
 class TrackPlayerFragment : Fragment() {
     private lateinit var binding: FragmentTrackPlayerBinding
     private val playerViewModel: MediaPlayerViewModel by activityViewModels()
+    private val favoritesViewModel: FavoritesViewModel by activityViewModels()
     private var isUserSeeking = false
+    private var currentSongPath: String? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -54,6 +57,10 @@ class TrackPlayerFragment : Fragment() {
 
         binding.trackNext.setOnClickListener {
             playerViewModel.nextTrack(requireContext())
+        }
+
+        binding.trackLike.setOnClickListener {
+            currentSongPath?.let { favoritesViewModel.toggleLike(it) }
         }
 
         binding.trackSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -131,9 +138,24 @@ class TrackPlayerFragment : Fragment() {
                 if (active) R.string.shufflePlaybackEnabled else R.string.shufflePlaybackDisabled
             )
         }
+
+        favoritesViewModel.likedSongPaths.observe(viewLifecycleOwner) {
+            updateLikeButton(currentSongPath)
+        }
+    }
+
+    private fun updateLikeButton(songPath: String?) {
+        val isLiked = songPath != null && favoritesViewModel.isLiked(songPath)
+        binding.trackLike.setImageResource(
+            if (isLiked) R.drawable.baseline_favourite else R.drawable.baseline_favourite_border_24
+        )
+        binding.trackLike.contentDescription = getString(
+            if (isLiked) R.string.unlikeTrack else R.string.likeTrack
+        )
     }
 
     private fun bindSong(song: Song) {
+        currentSongPath = song.songPath
         binding.trackTitle.text = song.title.ifBlank { getString(R.string.noTrackPlaying) }
         binding.trackArtist.text = song.artist.ifBlank { getString(R.string.undefined) }
         binding.trackSeekBar.progress = 0
@@ -141,6 +163,7 @@ class TrackPlayerFragment : Fragment() {
         binding.trackTotalTime.text = formatDuration(song.duration.coerceAtLeast(0))
         binding.trackSeekBar.max = song.duration.coerceAtMost(Int.MAX_VALUE.toLong()).toInt().coerceAtLeast(0)
         loadAlbumArt(song, binding.trackCover)
+        updateLikeButton(song.songPath)
     }
 
     private fun formatDuration(millis: Long): String {

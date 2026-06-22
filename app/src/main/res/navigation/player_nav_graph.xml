@@ -34,4 +34,8 @@
         android:id="@+id/trackPlayerFragment"
         android:name="com.rodomanovt.freedomplayer.fragments.TrackPlayerFragment"
         android:label="TrackPlayerFragment" />
+
+    <action
+        android:id="@+id/action_global_trackPlayerFragment"
+        app:destination="@id/trackPlayerFragment" />
 </navigation>

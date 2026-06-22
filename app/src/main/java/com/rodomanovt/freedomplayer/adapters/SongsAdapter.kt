@@ -27,18 +27,27 @@ class SongsAdapter(
 ) : ListAdapter<Song, SongsAdapter.ViewHolder>(SongDiffCallback) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val previewCache = ConcurrentHashMap<String, SongPreview>()
+    private var likedSongPaths: Set<String> = emptySet()
+
+    fun updateLikedSongs(paths: Set<String>) {
+        if (likedSongPaths == paths) return
+        likedSongPaths = paths
+        notifyDataSetChanged()
+    }
 
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val titleView: TextView = itemView.findViewById(R.id.song_title)
         private val artistView: TextView = itemView.findViewById(R.id.song_artist)
         private val durationView: TextView = itemView.findViewById(R.id.song_duration)
         private val albumArtView: ImageView = itemView.findViewById(R.id.song_cover)
+        private val likeView: ImageView = itemView.findViewById(R.id.song_like)
 
-        fun bind(song: Song) {
+        fun bind(song: Song, isLiked: Boolean) {
             titleView.text = song.title
             artistView.text = song.artist.ifBlank { "Неизвестный исполнитель" }
             durationView.text = if (song.duration > 0) formatDuration(song.duration) else "--:--"
             albumArtView.setImageResource(R.drawable.baseline_music_note_24)
+            likeView.visibility = if (isLiked) View.VISIBLE else View.GONE
             itemView.tag = song.songPath
 
             Log.d("SongsAdapter", "Loaded ${song.songPath}")
@@ -59,7 +68,7 @@ class SongsAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val song = getItem(position)
-        holder.bind(song)
+        holder.bind(song, likedSongPaths.contains(song.songPath))
         holder.itemView.setOnClickListener { onSongClick(song) }
         loadPreviewIfNeeded(holder, song)
 

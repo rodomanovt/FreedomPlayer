@@ -2,7 +2,6 @@ package com.rodomanovt.freedomplayer.fragments
 
 import android.net.Uri
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,14 +13,12 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.adapters.SongsAdapter
 import com.rodomanovt.freedomplayer.adapters.PlaylistHeaderAdapter
 import com.rodomanovt.freedomplayer.databinding.FragmentSongsBinding
-import com.rodomanovt.freedomplayer.model.Song
+import com.rodomanovt.freedomplayer.viewmodels.FavoritesViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
-import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbumArt
 
 class SongsFragment : Fragment() {
     private lateinit var binding: FragmentSongsBinding
@@ -29,6 +26,7 @@ class SongsFragment : Fragment() {
     private lateinit var headerAdapter: PlaylistHeaderAdapter
     private val viewModel: MusicViewModel by viewModels()
     private val playerViewModel: MediaPlayerViewModel by activityViewModels()
+    private val favoritesViewModel: FavoritesViewModel by activityViewModels()
     private var playlistName: String = ""
 
     override fun onCreateView(
@@ -84,29 +82,6 @@ class SongsFragment : Fragment() {
             adapter = ConcatAdapter(headerAdapter, this@SongsFragment.adapter)
             addItemDecoration(DividerItemDecoration(requireContext(), LinearLayoutManager.VERTICAL))
         }
-
-        binding.playerCard.visibility = View.GONE
-        binding.playerCard.setOnClickListener {
-            if (playerViewModel.currentSong.value != null) {
-                findNavController().navigate(R.id.action_songsFragment_to_trackPlayerFragment)
-            }
-        }
-
-        binding.playerPlayPause.setOnClickListener {
-            if (playerViewModel.isPlaying.value == true) {
-                playerViewModel.pause()
-            } else {
-                playerViewModel.resume(requireContext())
-            }
-        }
-
-        binding.playerNext.setOnClickListener {
-            playerViewModel.nextTrack(requireContext())
-        }
-
-        binding.playerPrev.setOnClickListener {
-            playerViewModel.prevTrack(requireContext())
-        }
     }
 
     private fun loadSongs() {
@@ -123,43 +98,13 @@ class SongsFragment : Fragment() {
             //binding.emptyStateView.visibility = if (songs.isEmpty()) View.VISIBLE else View.GONE
         }
 
-        playerViewModel.currentSong.observe(viewLifecycleOwner) { song ->
-            song?.let { updateBottomPlayer(it) }
-            binding.playerCard.visibility = if (song != null) View.VISIBLE else View.GONE
-        }
-
-        playerViewModel.playbackProgress.observe(viewLifecycleOwner) { position ->
-            binding.playerProgressBar.progress = position
-            binding.playerCurrentTime.text = formatDuration(position.toLong())
-        }
-
-        playerViewModel.playbackDuration.observe(viewLifecycleOwner) { duration ->
-            binding.playerProgressBar.min = 0
-            binding.playerProgressBar.max = duration
-        }
-
         playerViewModel.isShuffleEnabled.observe(viewLifecycleOwner) { enabled ->
             headerAdapter.setShuffleEnabled(enabled == true)
         }
 
-        // Обновляем кнопку проигрывания
-        playerViewModel.isPlaying.observe(viewLifecycleOwner) { playing ->
-            binding.playerPlayPause.setImageResource(
-                if (playing == true) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24
-            )
+        favoritesViewModel.likedSongPaths.observe(viewLifecycleOwner) { likedPaths ->
+            adapter.updateLikedSongs(likedPaths)
         }
-    }
-
-    private fun updateBottomPlayer(song: Song) {
-        binding.playerTitle.text = song.title
-        binding.playerArtist.text = song.artist
-        loadAlbumArt(song, binding.playerAlbumArt)
-    }
-
-    private fun formatDuration(millis: Long): String {
-        val seconds = (millis / 1000) % 60
-        val minutes = (millis / (1000 * 60)) % 60
-        return String.format("%02d:%02d", minutes, seconds)
     }
 
     private fun getPlaylistNameFromUri(uri: Uri): String {

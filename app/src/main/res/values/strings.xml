@@ -36,6 +36,9 @@
     <string name="totalTrackTime">Total duration</string>
     <string name="noTrackPlaying">No track is playing</string>
     <string name="nextTrackLabel">Next:</string>
+    <string name="likeTrack">Like track</string>
+    <string name="likedTrack">Liked track</string>
+    <string name="unlikeTrack">Unlike track</string>
 
     <string name="formatMP3">.mp3</string>
     <string name="formatOpus">.opus</string>

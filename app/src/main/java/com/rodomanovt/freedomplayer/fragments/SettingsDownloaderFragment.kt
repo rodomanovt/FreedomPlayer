@@ -104,18 +104,20 @@ class SettingsDownloaderFragment : Fragment() {
         val selectFolderLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val uri = result.data?.data ?: return@registerForActivityResult
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 requireContext().contentResolver.takePersistableUriPermission(uri, flags)
-                // Сохраняем URI
                 prefsHelper.saveRootFolderUri(uri)
-
+                binding.settingDownloadPathText.text = uri.path ?: getString(R.string.undefined)
             }
         }
 
         // Запуск выбора папки
         fun openFolderPicker() {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
-                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                    Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
             }
             selectFolderLauncher.launch(intent)
         }

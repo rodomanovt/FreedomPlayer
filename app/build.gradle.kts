@@ -77,4 +77,5 @@ dependencies {
     implementation (libs.glide)
     implementation(libs.youtubedl.android.library)
     implementation(libs.youtubedl.android.ffmpeg)
+    implementation(libs.jaudiotagger)
 }

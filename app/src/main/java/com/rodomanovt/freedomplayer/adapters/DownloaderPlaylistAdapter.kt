@@ -12,13 +12,14 @@ import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
 
 class DownloaderPlaylistAdapter(
+    private val onDownloadClick: (DownloaderPlaylist) -> Unit,
     private val onMenuClick: (DownloaderPlaylist, View) -> Unit
 ) : ListAdapter<DownloaderPlaylist, DownloaderPlaylistAdapter.ViewHolder>(Comparator) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.card_downloader_playlist, parent, false)
-        return ViewHolder(view, onMenuClick)
+        return ViewHolder(view, onDownloadClick, onMenuClick)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -27,6 +28,7 @@ class DownloaderPlaylistAdapter(
 
     class ViewHolder(
         itemView: View,
+        private val onDownloadClick: (DownloaderPlaylist) -> Unit,
         private val onMenuClick: (DownloaderPlaylist, View) -> Unit
     ) : RecyclerView.ViewHolder(itemView) {
         private val nameView: TextView = itemView.findViewById(R.id.textViewPlaylistName)
@@ -36,6 +38,7 @@ class DownloaderPlaylistAdapter(
         fun bind(playlist: DownloaderPlaylist) {
             nameView.text = playlist.name
             downloadButton.isEnabled = true
+            downloadButton.setOnClickListener { onDownloadClick(playlist) }
             menuButton.setOnClickListener { onMenuClick(playlist, it) }
         }
     }

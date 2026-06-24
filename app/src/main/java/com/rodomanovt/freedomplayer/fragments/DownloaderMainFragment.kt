@@ -44,9 +44,10 @@ class DownloaderMainFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = DownloaderPlaylistAdapter { playlist, anchor ->
-            showPlaylistMenu(playlist, anchor)
-        }
+        adapter = DownloaderPlaylistAdapter(
+            onDownloadClick = { playlist -> viewModel.scanPlaylistForDownload(playlist) },
+            onMenuClick = { playlist, anchor -> showPlaylistMenu(playlist, anchor) }
+        )
 
         binding.recyclerViewPlaylists.apply {
             layoutManager = LinearLayoutManager(requireContext())
@@ -63,6 +64,12 @@ class DownloaderMainFragment : Fragment() {
 
         viewModel.playlists.observe(viewLifecycleOwner) { playlists ->
             adapter.submitList(playlists)
+        }
+
+        viewModel.playlistMessage.observe(viewLifecycleOwner) { message ->
+            message ?: return@observe
+            ToastLog.show(requireContext(), message, tag = LOG_TAG)
+            viewModel.clearPlaylistMessage()
         }
 
         viewModel.trackDownloadState.observe(viewLifecycleOwner) { state ->

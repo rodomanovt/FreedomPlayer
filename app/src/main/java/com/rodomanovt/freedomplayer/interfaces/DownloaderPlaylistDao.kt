@@ -17,6 +17,9 @@ interface DownloaderPlaylistDao {
     @Query("DELETE FROM downloader_playlists WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("SELECT * FROM downloader_playlists WHERE id = :id")
+    suspend fun getById(id: Long): DownloaderPlaylistEntity?
+
     @Query("SELECT * FROM downloader_playlists ORDER BY name COLLATE NOCASE ASC")
     suspend fun getAll(): List<DownloaderPlaylistEntity>
 }

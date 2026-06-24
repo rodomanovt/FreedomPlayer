@@ -45,7 +45,7 @@ class DownloaderMainFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         adapter = DownloaderPlaylistAdapter(
-            onDownloadClick = { playlist -> viewModel.scanPlaylistForDownload(playlist) },
+            onDownloadClick = { playlist -> viewModel.downloadPlaylist(playlist) },
             onMenuClick = { playlist, anchor -> showPlaylistMenu(playlist, anchor) }
         )
 

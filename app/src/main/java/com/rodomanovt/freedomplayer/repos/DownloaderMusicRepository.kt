@@ -1,9 +1,15 @@
 package com.rodomanovt.freedomplayer.repos
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.helpers.DownloaderStorageHelper
+import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
 import com.rodomanovt.freedomplayer.model.RemoteSong
@@ -80,6 +86,63 @@ class DownloaderMusicRepository(
                 !isDownloaded(song.url, allDownloadedUrls)
             }
         }
+
+    suspend fun downloadSongs(
+        playlist: DownloaderPlaylist,
+        songs: List<RemoteSong>
+    ) = withContext(Dispatchers.IO) {
+        if (songs.isEmpty()) return@withContext
+
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "downloader_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId,
+                context.getString(R.string.downloaderText),
+                NotificationManager.IMPORTANCE_LOW
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+
+        val notificationId = playlist.id.toInt().let { if (it == 0) playlist.hashCode() else it }
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(R.drawable.baseline_music_note_24)
+            .setContentTitle(context.getString(R.string.download_track_title) + ": " + playlist.name)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+
+        val playlistFolder = storageHelper.getPlaylistDocumentFile(playlist.name)
+
+        var downloaded = 0
+        val total = songs.size
+
+        songs.forEach { song ->
+            Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
+            val progressText = context.getString(R.string.playlist_songs_to_download, total) + 
+                " (Загружено: $downloaded / $total)"
+            
+            builder.setContentText("${song.name}\n$progressText")
+                .setProgress(total, downloaded, false)
+            notificationManager.notify(notificationId, builder.build())
+
+            val result = YtDlpDownloadHelper.downloadTrack(context, song.url, playlistFolder)
+            if (result.isSuccess) {
+                downloaded++
+                Log.i(TAG, "Successfully downloaded: ${song.name}")
+            } else {
+                Log.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
+            }
+        }
+
+        builder.setContentTitle(context.getString(R.string.download_success))
+            .setContentText("Загружено $downloaded из $total треков плейлиста ${playlist.name}")
+            .setProgress(0, 0, false)
+            .setOngoing(false)
+        notificationManager.notify(notificationId, builder.build())
+
+        Log.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
+    }
 
     private fun parseRemoteSongs(jsonOutput: String): List<RemoteSong> {
         val trimmed = jsonOutput.trim()

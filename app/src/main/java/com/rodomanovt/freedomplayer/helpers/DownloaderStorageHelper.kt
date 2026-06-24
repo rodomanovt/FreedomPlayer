@@ -11,29 +11,20 @@ class DownloaderStorageHelper(private val context: Context) {
     private val prefsHelper = PrefsHelper(context)
 
     fun createPlaylistFolder(playlistName: String): Result<Uri> {
-        val root = getWritableRoot().getOrElse { return Result.failure(it) }
-
-        val folderName = sanitizeFolderName(playlistName)
-        if (folderName.isBlank()) {
-            return Result.failure(
-                PlaylistFolderException(context.getString(R.string.playlist_folder_invalid_name))
-            )
-        }
-
-        root.findFile(folderName)?.takeIf { it.isDirectory }?.let { existing ->
-            Log.i(TAG, "Playlist folder already exists: $folderName")
-            return Result.success(existing.uri)
-        }
-
-        val created = root.createDirectory(folderName)
+        val folder = getPlaylistDocumentFile(playlistName)
             ?: return Result.failure(
-                PlaylistFolderException(
-                    context.getString(R.string.playlist_folder_create_failed, folderName)
-                )
+                PlaylistFolderException(context.getString(R.string.playlist_folder_create_failed, playlistName))
             )
+        return Result.success(folder.uri)
+    }
 
-        Log.i(TAG, "Created playlist folder: $folderName at ${created.uri}")
-        return Result.success(created.uri)
+    fun getPlaylistDocumentFile(playlistName: String): DocumentFile? {
+        val root = getWritableRoot().getOrNull() ?: return null
+        val folderName = sanitizeFolderName(playlistName)
+        if (folderName.isBlank()) return null
+
+        return root.findFile(folderName)?.takeIf { it.isDirectory }
+            ?: root.createDirectory(folderName)
     }
 
     fun renamePlaylistFolder(oldName: String, newName: String): Result<Uri> {

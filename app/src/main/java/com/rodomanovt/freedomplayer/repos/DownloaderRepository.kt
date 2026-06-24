@@ -67,6 +67,9 @@ class DownloaderRepository(context: Context) {
 
     suspend fun getSongsToDownload(playlist: DownloaderPlaylist): List<RemoteSong> =
         musicRepository.getSongsToDownload(playlist)
+
+    suspend fun downloadSongs(playlist: DownloaderPlaylist, songs: List<RemoteSong>) =
+        musicRepository.downloadSongs(playlist, songs)
 }
 
 private fun DownloaderPlaylistEntity.toDomain(): DownloaderPlaylist = DownloaderPlaylist(

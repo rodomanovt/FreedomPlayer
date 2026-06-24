@@ -139,6 +139,30 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun downloadPlaylist(playlist: DownloaderPlaylist) {
+        viewModelScope.launch {
+            try {
+                Log.i(TAG, "Starting playlist download: ${playlist.name}")
+                _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
+                YtDlpManager.ensureUpdated(getApplication())
+
+                _trackDownloadState.value = TrackDownloadState.InProgress
+                val songs = repository.getSongsToDownload(playlist)
+
+                if (songs.isNotEmpty()) {
+                    repository.downloadSongs(playlist, songs)
+                    _trackDownloadState.value = TrackDownloadState.Success
+                } else {
+                    _trackDownloadState.value = TrackDownloadState.Idle
+                    _playlistMessage.value = "Нет новых треков для скачивания"
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to download playlist '${playlist.name}'", e)
+                _trackDownloadState.value = TrackDownloadState.Error(e.message ?: "Unknown error")
+            }
+        }
+    }
+
     private fun loadPlaylists() {
         viewModelScope.launch {
             try {

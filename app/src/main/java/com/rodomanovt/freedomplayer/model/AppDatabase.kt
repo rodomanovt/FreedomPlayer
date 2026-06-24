@@ -6,13 +6,19 @@ import androidx.room.RoomDatabase
 import android.content.Context
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.rodomanovt.freedomplayer.interfaces.DownloaderPlaylistDao
 import com.rodomanovt.freedomplayer.interfaces.PlaylistDao
 import com.rodomanovt.freedomplayer.interfaces.SongDao
 
-@Database(entities = [SongEntity::class, PlaylistEntity::class], version = 6, exportSchema = false)
+@Database(
+    entities = [SongEntity::class, PlaylistEntity::class, DownloaderPlaylistEntity::class],
+    version = 7,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun playlistDao(): PlaylistDao
+    abstract fun downloaderPlaylistDao(): DownloaderPlaylistDao
 
     companion object {
         private const val DATABASE_NAME = "music_database"

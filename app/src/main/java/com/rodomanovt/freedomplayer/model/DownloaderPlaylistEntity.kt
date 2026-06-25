@@ -8,5 +8,6 @@ data class DownloaderPlaylistEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
     val url: String,
-    val autoUpdate: Boolean
+    val autoUpdate: Boolean,
+    val lastDownloadTimestamp: Long? = null
 )

@@ -12,7 +12,7 @@ import com.rodomanovt.freedomplayer.interfaces.SongDao
 
 @Database(
     entities = [SongEntity::class, PlaylistEntity::class, DownloaderPlaylistEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

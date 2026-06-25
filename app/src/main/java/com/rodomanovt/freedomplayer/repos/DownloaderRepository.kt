@@ -29,14 +29,16 @@ class DownloaderRepository(context: Context) {
                 DownloaderPlaylistEntity(
                     name = name.trim(),
                     url = url.trim(),
-                    autoUpdate = autoUpdate
+                    autoUpdate = autoUpdate,
+                    lastDownloadTimestamp = null
                 )
             )
             DownloaderPlaylist(
                 id = id,
                 name = name.trim(),
                 url = url.trim(),
-                autoUpdate = autoUpdate
+                autoUpdate = autoUpdate,
+                lastDownloadTimestamp = null
             )
         }
 
@@ -56,7 +58,8 @@ class DownloaderRepository(context: Context) {
                 id = playlist.id,
                 name = newName,
                 url = playlist.url.trim(),
-                autoUpdate = playlist.autoUpdate
+                autoUpdate = playlist.autoUpdate,
+                lastDownloadTimestamp = playlist.lastDownloadTimestamp
             )
         )
     }
@@ -76,5 +79,6 @@ private fun DownloaderPlaylistEntity.toDomain(): DownloaderPlaylist = Downloader
     id = id,
     name = name,
     url = url,
-    autoUpdate = autoUpdate
+    autoUpdate = autoUpdate,
+    lastDownloadTimestamp = lastDownloadTimestamp
 )

@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class PlaylistEntity(
     @PrimaryKey val folderUri: String,
     val name: String,
-    val tracksCount: Int
+    val tracksCount: Int,
+    val lastDownloadTimestamp: Long? = null
 )

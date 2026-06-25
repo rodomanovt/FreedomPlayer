@@ -46,7 +46,8 @@ object YtDlpDownloadHelper {
 
             val request = YoutubeDLRequest(url.trim())
             YtDlpManager.configureAudioMp3Request(request)
-            request.addOption("-o", "${tempDir.absolutePath}/%(title)s.%(ext)s")
+            // Use title and ID to avoid collisions and help with identification
+            request.addOption("-o", "${tempDir.absolutePath}/%(title)s [%(id)s].%(ext)s")
 
             YoutubeDL.getInstance().execute(request) { progress, eta, line ->
                 Log.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")

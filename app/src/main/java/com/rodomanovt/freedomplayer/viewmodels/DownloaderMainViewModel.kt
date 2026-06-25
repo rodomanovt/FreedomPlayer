@@ -152,9 +152,11 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                 if (songs.isNotEmpty()) {
                     repository.downloadSongs(playlist, songs)
                     _trackDownloadState.value = TrackDownloadState.Success
+                    refreshPlaylists()
                 } else {
                     _trackDownloadState.value = TrackDownloadState.Idle
                     _playlistMessage.value = "Нет новых треков для скачивания"
+                    refreshPlaylists() // Refresh even if no songs, maybe timestamp was updated?
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to download playlist '${playlist.name}'", e)
@@ -163,14 +165,18 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    private suspend fun refreshPlaylists() {
+        try {
+            val list = repository.getAllPlaylists()
+            _playlists.postValue(list)
+        } catch (e: Exception) {
+            Log.e(TAG, "Ошибка обновления плейлистов", e)
+        }
+    }
+
     private fun loadPlaylists() {
         viewModelScope.launch {
-            try {
-                _playlists.value = repository.getAllPlaylists()
-            } catch (e: Exception) {
-                Log.e("DownloaderMainViewModel", "Ошибка загрузки плейлистов", e)
-                _playlists.value = emptyList()
-            }
+            refreshPlaylists()
         }
     }
 }

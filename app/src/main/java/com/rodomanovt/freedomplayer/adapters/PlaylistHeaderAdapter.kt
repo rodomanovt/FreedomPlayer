@@ -9,9 +9,11 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.ImageButton
 import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.rodomanovt.freedomplayer.R
+import com.rodomanovt.freedomplayer.model.Playlist
 import com.rodomanovt.freedomplayer.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,6 +21,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 class PlaylistHeaderAdapter(
@@ -27,7 +32,9 @@ class PlaylistHeaderAdapter(
 ) : RecyclerView.Adapter<PlaylistHeaderAdapter.ViewHolder>() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val artworkCache = ConcurrentHashMap<String, SongArtwork>()
+    private val dateFormat = SimpleDateFormat("Обновлено dd.MM.yy HH:mm", Locale.getDefault())
     private var playlistName: String = ""
+    private var playlist: Playlist? = null
     private var songs: List<Song> = emptyList()
     private var isShuffleEnabled: Boolean = false
 
@@ -38,7 +45,7 @@ class PlaylistHeaderAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(playlistName, songs)
+        holder.bind(playlist, songs)
     }
 
     override fun getItemCount(): Int = 1
@@ -48,8 +55,11 @@ class PlaylistHeaderAdapter(
         scope.coroutineContext.cancelChildren()
     }
 
-    fun submitPlaylist(name: String, songs: List<Song>) {
-        playlistName = name
+    fun submitPlaylist(playlist: Playlist?, songs: List<Song>, fallbackName: String = "") {
+        this.playlist = playlist
+        if (playlist == null && fallbackName.isNotBlank()) {
+            this.playlistName = fallbackName
+        }
         this.songs = songs
         notifyDataSetChanged()
     }
@@ -66,11 +76,21 @@ class PlaylistHeaderAdapter(
         private val coverBottomLeft: ImageView = itemView.findViewById(R.id.coverBottomLeft)
         private val coverBottomRight: ImageView = itemView.findViewById(R.id.coverBottomRight)
         private val titleView: TextView = itemView.findViewById(R.id.textPlaylistTitle)
+        private val lastUpdateView: TextView = itemView.findViewById(R.id.textLastUpdate)
         private val playButton: ImageButton = itemView.findViewById(R.id.buttonPlayPlaylist)
         private val shuffleButton: ImageButton = itemView.findViewById(R.id.buttonShufflePlaylist)
 
-        fun bind(name: String, songs: List<Song>) {
-            titleView.text = name
+        fun bind(playlist: Playlist?, songs: List<Song>) {
+            titleView.text = playlist?.name ?: playlistName
+            
+            val timestamp = playlist?.lastDownloadTimestamp
+            if (timestamp != null && timestamp > 0) {
+                lastUpdateView.isVisible = true
+                lastUpdateView.text = dateFormat.format(Date(timestamp))
+            } else {
+                lastUpdateView.isVisible = false
+            }
+
             val hasSongs = songs.isNotEmpty()
             playButton.isEnabled = hasSongs
             shuffleButton.isEnabled = hasSongs

@@ -7,17 +7,21 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.helpers.DownloaderStorageHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
+import com.rodomanovt.freedomplayer.model.AppDatabase
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
+import com.rodomanovt.freedomplayer.model.DownloaderPlaylistEntity
 import com.rodomanovt.freedomplayer.model.RemoteSong
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jaudiotagger.audio.AudioFileIO
+import org.jaudiotagger.tag.FieldKey
 import org.jaudiotagger.tag.id3.AbstractID3v2Frame
 import org.jaudiotagger.tag.id3.framebody.FrameBodyTXXX
 import org.json.JSONArray
@@ -41,12 +45,9 @@ class DownloaderMusicRepository(
 
             val response = YoutubeDL.getInstance().execute(request)
             Log.d(TAG, "yt-dlp stdout length=${response.out.length}, stderr length=${response.err.length}")
-            if (response.err.isNotBlank()) {
-                Log.d(TAG, "yt-dlp stderr: ${response.err.take(1000)}")
-            }
             parseRemoteSongs(response.out).also { songs ->
                 if (songs.isEmpty()) {
-                    Log.w(TAG, "No songs parsed from playlist. Raw stdout: ${response.out.take(2000)}")
+                    Log.w(TAG, "No songs parsed from playlist.")
                 } else {
                     Log.i(TAG, "Parsed ${songs.size} remote songs from playlist")
                 }
@@ -73,19 +74,52 @@ class DownloaderMusicRepository(
     suspend fun getSongsToDownload(playlist: DownloaderPlaylist): List<RemoteSong> =
         withContext(Dispatchers.IO) {
             val allRemoteSongs = getRemoteSongsFromPlaylist(playlist)
-            val allLocalSongPaths = getLocalSongUrisFromPlaylist(playlist)
-            val allDownloadedUrls = getAllDownloadedUrls(allLocalSongPaths)
+            val allLocalSongUris = getLocalSongUrisFromPlaylist(playlist)
+            val allDownloadedUrls = getAllDownloadedUrls(allLocalSongUris)
+
+            val localFilenames = allLocalSongUris.mapNotNull { uri ->
+                DocumentFile.fromSingleUri(context, uri)?.name?.lowercase()
+            }
 
             Log.i(
                 TAG,
                 "Playlist '${playlist.name}': remote=${allRemoteSongs.size}, " +
-                    "local mp3=${allLocalSongPaths.size}, with purl=${allDownloadedUrls.size}"
+                    "local mp3=${allLocalSongUris.size}, by metadata=${allDownloadedUrls.size}"
             )
 
             allRemoteSongs.filter { song ->
-                !isDownloaded(song.url, allDownloadedUrls)
+                // 1. Check by exact URL metadata
+                if (isDownloaded(song.url, allDownloadedUrls)) {
+                    Log.d(TAG, "Song '${song.name}' already exists by metadata")
+                    return@filter false
+                }
+
+                // 2. Fallback: check if video ID is in any filename
+                val videoId = extractVideoId(song.url)
+                if (videoId != null && localFilenames.any { it.contains(videoId.lowercase()) }) {
+                    Log.d(TAG, "Song '${song.name}' already exists by filename (ID: $videoId)")
+                    return@filter false
+                }
+
+                Log.d(TAG, "Song '${song.name}' needs download (ID: $videoId)")
+                true
             }
         }
+
+    private fun extractVideoId(url: String): String? {
+        val patterns = listOf(
+            "v=([^&]+)",
+            "be/([^?]+)",
+            "embed/([^?]+)",
+            "shorts/([^?]+)",
+            "watch\\?v=([^&]+)"
+        )
+        for (p in patterns) {
+            val match = Regex(p).find(url)
+            if (match != null) return match.groupValues[1]
+        }
+        return null
+    }
 
     suspend fun downloadSongs(
         playlist: DownloaderPlaylist,
@@ -117,8 +151,8 @@ class DownloaderMusicRepository(
         var downloaded = 0
         val total = songs.size
 
-        songs.forEach { song ->
-            Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
+        songs.asReversed().forEach { song ->
+            Log.i(TAG, "Starting download (reversed order): ${song.name} from ${song.url}")
             val progressText = context.getString(R.string.playlist_songs_to_download, total) + 
                 " (Загружено: $downloaded / $total)"
             
@@ -135,6 +169,14 @@ class DownloaderMusicRepository(
             }
         }
 
+        if (downloaded > 0) {
+            playlistFolder?.let { folder ->
+                Log.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
+                MusicRepository(context).scanAndSaveSongs(folder) { }
+            }
+            updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
+        }
+
         builder.setContentTitle(context.getString(R.string.download_success))
             .setContentText("Загружено $downloaded из $total треков плейлиста ${playlist.name}")
             .setProgress(0, 0, false)
@@ -142,6 +184,25 @@ class DownloaderMusicRepository(
         notificationManager.notify(notificationId, builder.build())
 
         Log.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
+    }
+
+    private suspend fun updateLastDownloadTimestamp(playlist: DownloaderPlaylist, folderUri: Uri?) {
+        val now = System.currentTimeMillis()
+        val db = AppDatabase.getInstance(context)
+
+        Log.i(TAG, "Updating last download timestamp for playlist: ${playlist.name} to $now")
+
+        db.downloaderPlaylistDao().getById(playlist.id)?.let { entity: DownloaderPlaylistEntity ->
+            db.downloaderPlaylistDao().update(entity.copy(lastDownloadTimestamp = now))
+            Log.d(TAG, "Updated DownloaderPlaylistEntity timestamp in DB")
+        } ?: Log.w(TAG, "Could not find DownloaderPlaylistEntity with id ${playlist.id}")
+
+        folderUri?.toString()?.let { uriString ->
+            db.playlistDao().getPlaylistByFolderUri(uriString)?.let { entity ->
+                db.playlistDao().insert(entity.copy(lastDownloadTimestamp = now))
+                Log.d(TAG, "Updated Player PlaylistEntity timestamp in DB for URI: $uriString")
+            } ?: Log.w(TAG, "Could not find Player PlaylistEntity in DB for URI: $uriString")
+        } ?: Log.w(TAG, "Folder URI is null, skipping Player PlaylistEntity update")
     }
 
     private fun parseRemoteSongs(jsonOutput: String): List<RemoteSong> {
@@ -248,6 +309,8 @@ class DownloaderMusicRepository(
 
             val audioFile = AudioFileIO.read(tempFile)
             val tag = audioFile.tag ?: return null
+            
+            // 1. Try TXXX:purl (custom field we set)
             for (field in tag.fields) {
                 if (field is AbstractID3v2Frame) {
                     val body = field.body
@@ -256,9 +319,14 @@ class DownloaderMusicRepository(
                     }
                 }
             }
+            
+            // 2. Try standard Comment field (yt-dlp often puts URL there)
+            val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
+            if (!comment.isNullOrBlank() && comment.toString().startsWith("http")) return comment.toString()
+
             null
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to read purl from $uri", e)
+            Log.w(TAG, "Failed to read metadata from $uri", e)
             null
         } finally {
             tempFile.delete()

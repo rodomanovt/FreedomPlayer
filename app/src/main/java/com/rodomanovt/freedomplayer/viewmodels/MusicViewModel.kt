@@ -28,6 +28,8 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     val playlists: LiveData<List<Playlist>> = _playlists
     private val _songs = MutableLiveData<List<Song>>()
     val songs: LiveData<List<Song>> = _songs
+    private val _currentPlaylist = MutableLiveData<Playlist?>()
+    val currentPlaylist: LiveData<Playlist?> = _currentPlaylist
     private val _isReindexing = MutableLiveData(false)
     val isReindexing: LiveData<Boolean> = _isReindexing
 
@@ -62,6 +64,9 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     fun loadSongs(folderUri: Uri) {
         viewModelScope.launch {
             try {
+                val playlist = repository.getPlaylistByUri(folderUri)
+                _currentPlaylist.value = playlist
+
                 val folder = resolveFolder(folderUri)
                 if (folder != null && folder.exists()) {
                     val songsFromDb = repository.getSongsFromDb(folderUri.toString())
@@ -75,6 +80,7 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                                     }
                                 }
                                 _songs.value = enrichedSongs
+                                _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
                             }
                         }
                     } else {
@@ -85,6 +91,8 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                             }
                         }
                         _songs.value = scannedSongs
+                        _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
+                        
                         if (scannedSongs.isNotEmpty()) {
                             viewModelScope.launch {
                                 val enrichedSongs = repository.enrichSongsMetadata(folder, scannedSongs) { indexedSongs ->
@@ -93,6 +101,7 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                                     }
                                 }
                                 _songs.value = enrichedSongs
+                                _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
                             }
                         }
                     }

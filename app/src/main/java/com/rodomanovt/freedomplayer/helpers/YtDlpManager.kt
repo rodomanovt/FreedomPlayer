@@ -93,6 +93,8 @@ object YtDlpManager {
         request.addOption("-x")
         request.addOption("--audio-format", "mp3")
         request.addOption("--embed-thumbnail")
-        request.addOption("--add-metadata")
+        request.addOption("--embed-metadata")
+        // Write the original URL to a custom metadata field that ffmpeg can map to TXXX:purl
+        request.addOption("--parse-metadata", "webpage_url:%(meta_purl)s")
     }
 }

@@ -24,6 +24,15 @@
             android:textSize="16sp"
             android:textStyle="bold" />
 
+        <TextView
+            android:id="@+id/textViewLastUpdate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:textColor="#888888"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
         <ImageButton
             android:id="@+id/buttonDownload"
             android:layout_width="40dp"

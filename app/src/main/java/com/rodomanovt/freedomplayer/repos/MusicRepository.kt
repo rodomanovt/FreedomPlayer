@@ -55,6 +55,10 @@ class MusicRepository(private val context: Context) {
 
     suspend fun getAllPlaylists(rootFolderUri: Uri): List<Playlist> = syncPlaylistsFromRoot(rootFolderUri)
 
+    suspend fun getPlaylistByUri(uri: Uri): Playlist? = withContext(Dispatchers.IO) {
+        playlistDao.getPlaylistByFolderUri(uri.toString())?.toDomain(loadSongs = false)
+    }
+
     suspend fun getSongsFromFolder(folder: DocumentFile): List<Song> = withContext(Dispatchers.IO) {
         val songs = scanSongs(folder)
         Log.d("MusicRepository", "Загружено треков: ${songs.size}")
@@ -92,11 +96,14 @@ class MusicRepository(private val context: Context) {
             }
         }
 
+        val existingPlaylist = playlistDao.getPlaylistByFolderUri(folder.uri.toString())
+        
         persistPlaylistMetadata(
             Playlist(
                 name = folder.name ?: "Unnamed",
                 tracksCount = songs.size,
                 folderUri = folder.uri,
+                lastDownloadTimestamp = existingPlaylist?.lastDownloadTimestamp,
                 songs = emptyList()
             )
         )
@@ -123,11 +130,14 @@ class MusicRepository(private val context: Context) {
             }
         }
 
+        val existingPlaylist = playlistDao.getPlaylistByFolderUri(folder.uri.toString())
+        
         persistPlaylistMetadata(
             Playlist(
                 name = folder.name ?: "Unnamed",
                 tracksCount = songs.size,
                 folderUri = folder.uri,
+                lastDownloadTimestamp = existingPlaylist?.lastDownloadTimestamp,
                 songs = emptyList()
             )
         )
@@ -151,7 +161,7 @@ class MusicRepository(private val context: Context) {
                 songDao.deleteSongsByFolder(folderPath)
 
                 val indexedSongs = scanAndSaveSongs(folder) { }
-                val playlist = Playlist(
+                val playlist = getPlaylistByUri(folder.uri) ?: Playlist(
                     name = folder.name ?: "Unnamed",
                     tracksCount = indexedSongs.size,
                     folderUri = folder.uri,
@@ -180,6 +190,7 @@ class MusicRepository(private val context: Context) {
             name = name,
             tracksCount = tracksCount,
             folderUri = Uri.parse(folderUri),
+            lastDownloadTimestamp = lastDownloadTimestamp,
             songs = songs
         )
     }
@@ -316,7 +327,8 @@ private fun SongEntity.toDomain(): Song = Song(
 private fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
     folderUri = folderUri.toString(),
     name = name,
-    tracksCount = tracksCount
+    tracksCount = tracksCount,
+    lastDownloadTimestamp = lastDownloadTimestamp
 )
 
 private fun Song.toEntity(): SongEntity = SongEntity(

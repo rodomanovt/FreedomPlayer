@@ -69,7 +69,7 @@ class SongsFragment : Fragment() {
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
             playlistName = getPlaylistNameFromUri(folderUri)
-            headerAdapter.submitPlaylist(playlistName, emptyList())
+            headerAdapter.submitPlaylist(null, emptyList(), playlistName)
         }
 
         adapter = SongsAdapter { song ->
@@ -94,8 +94,12 @@ class SongsFragment : Fragment() {
     private fun setupObservers() {
         viewModel.songs.observe(viewLifecycleOwner) { songs ->
             adapter.submitList(songs)
-            headerAdapter.submitPlaylist(playlistName, songs)
+            headerAdapter.submitPlaylist(viewModel.currentPlaylist.value, songs)
             //binding.emptyStateView.visibility = if (songs.isEmpty()) View.VISIBLE else View.GONE
+        }
+
+        viewModel.currentPlaylist.observe(viewLifecycleOwner) { playlist ->
+            headerAdapter.submitPlaylist(playlist, viewModel.songs.value ?: emptyList())
         }
 
         playerViewModel.isShuffleEnabled.observe(viewLifecycleOwner) { enabled ->

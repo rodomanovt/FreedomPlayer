@@ -96,7 +96,9 @@
     <string name="track_url_required">Введите ссылку на трек</string>
     <string name="ytdlp_updating">Обновление yt-dlp…</string>
     <string name="download_started">Скачивание начато…</string>
-    <string name="download_success">Трек сохранён в Загрузки/FreedomPlayer (mp3 с обложкой)</string>
+    <string name="download_success">Загрузка завершена</string>
+    <string name="download_success_details">Загружено %1$d из %2$d треков в %3$s</string>
+    <string name="download_success_details_single">Файл сохранён в %1$s</string>
     <string name="download_failed">Ошибка скачивания: %1$s</string>
     <string name="download_path_not_set">Укажите папку загрузки в настройках загрузчика</string>
     <string name="download_path_inaccessible">Не удалось открыть папку загрузки</string>

@@ -58,12 +58,20 @@ class DownloaderMainFragment : Fragment() {
             showAddPlaylistDialog()
         }
 
+        binding.downloadAllButton.setOnClickListener {
+            viewModel.downloadAllPlaylists()
+        }
+
         binding.downloadTrackButton.setOnClickListener {
             showDownloadTrackDialog()
         }
 
         viewModel.playlists.observe(viewLifecycleOwner) { playlists ->
             adapter.submitList(playlists)
+        }
+
+        viewModel.activeDownloadIds.observe(viewLifecycleOwner) { ids ->
+            adapter.setActiveDownloadIds(ids)
         }
 
         viewModel.playlistMessage.observe(viewLifecycleOwner) { message ->
@@ -81,8 +89,12 @@ class DownloaderMainFragment : Fragment() {
                 TrackDownloadState.InProgress -> {
                     ToastLog.show(requireContext(), R.string.download_started, tag = LOG_TAG)
                 }
-                TrackDownloadState.Success -> {
-                    ToastLog.show(requireContext(), R.string.download_success, Toast.LENGTH_LONG, LOG_TAG)
+                is TrackDownloadState.Success -> {
+                    val message = state.path?.let { 
+                        getString(R.string.download_success_details_single, it)
+                    } ?: getString(R.string.download_success)
+                    
+                    ToastLog.show(requireContext(), message, Toast.LENGTH_LONG, LOG_TAG)
                     viewModel.resetTrackDownloadState()
                 }
                 is TrackDownloadState.Error -> {

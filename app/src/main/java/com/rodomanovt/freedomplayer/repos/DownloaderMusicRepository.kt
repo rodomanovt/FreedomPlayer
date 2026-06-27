@@ -174,16 +174,29 @@ class DownloaderMusicRepository(
                 Log.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
                 MusicRepository(context).scanAndSaveSongs(folder) { }
             }
-            updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
+        }
+        updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
+
+        val displayPath = try {
+            val root = YtDlpDownloadHelper.getDownloadDirectory(context)
+            val sanitized = playlist.name.trim().replace(Regex("[/\\\\:*?\"<>|]"), "_")
+            File(root, sanitized).absolutePath
+        } catch (e: Exception) {
+            playlist.name
         }
 
         builder.setContentTitle(context.getString(R.string.download_success))
-            .setContentText("Загружено $downloaded из $total треков плейлиста ${playlist.name}")
+            .setContentText(context.getString(R.string.download_success_details, downloaded, total, displayPath))
             .setProgress(0, 0, false)
             .setOngoing(false)
         notificationManager.notify(notificationId, builder.build())
 
         Log.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
+    }
+
+    suspend fun updatePlaylistTimestamp(playlist: DownloaderPlaylist) = withContext(Dispatchers.IO) {
+        val folderUri = storageHelper.getPlaylistDocumentFile(playlist.name)?.uri
+        updateLastDownloadTimestamp(playlist, folderUri)
     }
 
     private suspend fun updateLastDownloadTimestamp(playlist: DownloaderPlaylist, folderUri: Uri?) {

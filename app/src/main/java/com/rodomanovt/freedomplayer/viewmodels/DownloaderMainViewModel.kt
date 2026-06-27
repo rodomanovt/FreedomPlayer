@@ -17,7 +17,7 @@ sealed class TrackDownloadState {
     data object Idle : TrackDownloadState()
     data object UpdatingYtDlp : TrackDownloadState()
     data object InProgress : TrackDownloadState()
-    data object Success : TrackDownloadState()
+    data class Success(val path: String? = null) : TrackDownloadState()
     data class Error(val message: String) : TrackDownloadState()
 }
 
@@ -37,6 +37,12 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
 
     private val _playlistMessage = MutableLiveData<String?>()
     val playlistMessage: LiveData<String?> = _playlistMessage
+
+    private val _activeDownloadIds = MutableLiveData<Set<Long>>(emptySet())
+    val activeDownloadIds: LiveData<Set<Long>> = _activeDownloadIds
+
+    private val downloadQueue = mutableListOf<DownloaderPlaylist>()
+    private var isProcessingQueue = false
 
     init {
         loadPlaylists()
@@ -98,7 +104,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
             _trackDownloadState.value = TrackDownloadState.InProgress
             val result = YtDlpDownloadHelper.downloadTrack(getApplication(), url)
             _trackDownloadState.value = if (result.isSuccess) {
-                TrackDownloadState.Success
+                TrackDownloadState.Success(result.getOrNull()?.absolutePath)
             } else {
                 TrackDownloadState.Error(
                     result.exceptionOrNull()?.message ?: "Unknown error"
@@ -140,9 +146,35 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun downloadPlaylist(playlist: DownloaderPlaylist) {
+        if (_activeDownloadIds.value?.contains(playlist.id) == true) return
+
+        downloadQueue.add(playlist)
+        _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) + playlist.id
+        
+        if (!isProcessingQueue) {
+            processNextInQueue()
+        }
+    }
+
+    fun downloadAllPlaylists() {
+        val currentPlaylists = _playlists.value ?: return
+        currentPlaylists.forEach { playlist ->
+            downloadPlaylist(playlist)
+        }
+    }
+
+    private fun processNextInQueue() {
+        if (downloadQueue.isEmpty()) {
+            isProcessingQueue = false
+            return
+        }
+
+        isProcessingQueue = true
+        val playlist = downloadQueue.removeAt(0)
+
         viewModelScope.launch {
             try {
-                Log.i(TAG, "Starting playlist download: ${playlist.name}")
+                Log.i(TAG, "Starting playlist download from queue: ${playlist.name}")
                 _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
                 YtDlpManager.ensureUpdated(getApplication())
 
@@ -151,16 +183,20 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
 
                 if (songs.isNotEmpty()) {
                     repository.downloadSongs(playlist, songs)
-                    _trackDownloadState.value = TrackDownloadState.Success
+                    _trackDownloadState.value = TrackDownloadState.Success()
                     refreshPlaylists()
                 } else {
+                    repository.updatePlaylistTimestamp(playlist)
                     _trackDownloadState.value = TrackDownloadState.Idle
-                    _playlistMessage.value = "Нет новых треков для скачивания"
-                    refreshPlaylists() // Refresh even if no songs, maybe timestamp was updated?
+                    _playlistMessage.value = "Нет новых треков для скачивания в ${playlist.name}"
+                    refreshPlaylists()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to download playlist '${playlist.name}'", e)
                 _trackDownloadState.value = TrackDownloadState.Error(e.message ?: "Unknown error")
+            } finally {
+                _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlist.id
+                processNextInQueue()
             }
         }
     }

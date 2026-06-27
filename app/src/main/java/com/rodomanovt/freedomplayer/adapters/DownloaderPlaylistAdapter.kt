@@ -21,6 +21,7 @@ class DownloaderPlaylistAdapter(
 ) : ListAdapter<DownloaderPlaylist, DownloaderPlaylistAdapter.ViewHolder>(Comparator) {
 
     private val dateFormat = SimpleDateFormat("Обновлено dd.MM.yy HH:mm", Locale.getDefault())
+    private var activeDownloadIds: Set<Long> = emptySet()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -29,7 +30,12 @@ class DownloaderPlaylistAdapter(
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), activeDownloadIds)
+    }
+
+    fun setActiveDownloadIds(ids: Set<Long>) {
+        activeDownloadIds = ids
+        notifyDataSetChanged()
     }
 
     class ViewHolder(
@@ -41,9 +47,10 @@ class DownloaderPlaylistAdapter(
         private val nameView: TextView = itemView.findViewById(R.id.textViewPlaylistName)
         private val lastUpdateView: TextView = itemView.findViewById(R.id.textViewLastUpdate)
         private val downloadButton: ImageButton = itemView.findViewById(R.id.buttonDownload)
+        private val progressBar: android.widget.ProgressBar = itemView.findViewById(R.id.progressBarDownload)
         private val menuButton: ImageButton = itemView.findViewById(R.id.buttonMenu)
 
-        fun bind(playlist: DownloaderPlaylist) {
+        fun bind(playlist: DownloaderPlaylist, activeIds: Set<Long>) {
             nameView.text = playlist.name
             
             val timestamp = playlist.lastDownloadTimestamp
@@ -54,7 +61,12 @@ class DownloaderPlaylistAdapter(
                 lastUpdateView.isVisible = false
             }
 
-            downloadButton.isEnabled = true
+            val isQueuedOrDownloading = activeIds.contains(playlist.id)
+            downloadButton.isVisible = !isQueuedOrDownloading
+            progressBar.isVisible = isQueuedOrDownloading
+            // Current playlist is disabled if it's already in the active set
+            downloadButton.isEnabled = !isQueuedOrDownloading
+
             downloadButton.setOnClickListener { onDownloadClick(playlist) }
             menuButton.setOnClickListener { onMenuClick(playlist, it) }
         }

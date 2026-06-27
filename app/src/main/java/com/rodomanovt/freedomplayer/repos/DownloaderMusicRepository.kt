@@ -59,66 +59,75 @@ class DownloaderMusicRepository(
             storageHelper.listMp3Uris(playlist.name)
         }
 
-    suspend fun getAllDownloadedUrls(paths: List<Uri>): Set<String> = withContext(Dispatchers.IO) {
-        val result = mutableSetOf<String>()
-        for (uri in paths) {
-            extractPurlFromMp3(uri)?.let { result.add(normalizeUrl(it)) }
-        }
-        result
-    }
+    data class ExtractedMetadata(val url: String? = null, val id: String? = null)
 
-    fun isDownloaded(targetUrl: String, downloadedUrls: Set<String>): Boolean {
-        return normalizeUrl(targetUrl) in downloadedUrls
+    suspend fun getAllDownloadedMetadata(paths: List<Uri>): List<ExtractedMetadata> = withContext(Dispatchers.IO) {
+        paths.map { uri -> extractMetadataFromMp3(uri) }
     }
 
     suspend fun getSongsToDownload(playlist: DownloaderPlaylist): List<RemoteSong> =
         withContext(Dispatchers.IO) {
             val allRemoteSongs = getRemoteSongsFromPlaylist(playlist)
             val allLocalSongUris = getLocalSongUrisFromPlaylist(playlist)
-            val allDownloadedUrls = getAllDownloadedUrls(allLocalSongUris)
+            
+            val localMetadatas = getAllDownloadedMetadata(allLocalSongUris)
+            val localDownloadedUrls = localMetadatas.mapNotNull { it.url?.let { u -> normalizeUrl(u) } }.toSet()
+            val localDownloadedIds = localMetadatas.mapNotNull { it.id?.lowercase() }.toMutableSet()
+            
+            localMetadatas.forEach { meta ->
+                meta.url?.let { extractVideoId(it) }?.let { localDownloadedIds.add(it.lowercase()) }
+            }
 
             val localFilenames = allLocalSongUris.mapNotNull { uri ->
                 DocumentFile.fromSingleUri(context, uri)?.name?.lowercase()
             }
+            localFilenames.forEach { name ->
+                extractVideoIdFromFilename(name)?.let { localDownloadedIds.add(it.lowercase()) }
+            }
 
             Log.i(
                 TAG,
-                "Playlist '${playlist.name}': remote=${allRemoteSongs.size}, " +
-                    "local mp3=${allLocalSongUris.size}, by metadata=${allDownloadedUrls.size}"
+                "Playlist '${playlist.name}': remote=${allRemoteSongs.size}, local files=${allLocalSongUris.size}, known unique IDs=${localDownloadedIds.size}"
             )
 
             allRemoteSongs.filter { song ->
-                // 1. Check by exact URL metadata
-                if (isDownloaded(song.url, allDownloadedUrls)) {
-                    Log.d(TAG, "Song '${song.name}' already exists by metadata")
+                val videoId = extractVideoId(song.url)?.lowercase()
+                val normalizedUrl = normalizeUrl(song.url)
+
+                if (localDownloadedUrls.contains(normalizedUrl)) {
+                    Log.d(TAG, "Skipping '${song.name}': found by URL metadata")
                     return@filter false
                 }
 
-                // 2. Fallback: check if video ID is in any filename
-                val videoId = extractVideoId(song.url)
-                if (videoId != null && localFilenames.any { it.contains(videoId.lowercase()) }) {
-                    Log.d(TAG, "Song '${song.name}' already exists by filename (ID: $videoId)")
+                if (videoId != null && localDownloadedIds.contains(videoId)) {
+                    Log.d(TAG, "Skipping '${song.name}': found by Video ID ($videoId)")
                     return@filter false
                 }
 
-                Log.d(TAG, "Song '${song.name}' needs download (ID: $videoId)")
+                Log.d(TAG, "Adding '${song.name}' to download queue (ID: $videoId)")
                 true
             }
         }
 
     private fun extractVideoId(url: String): String? {
         val patterns = listOf(
-            "v=([^&]+)",
-            "be/([^?]+)",
-            "embed/([^?]+)",
-            "shorts/([^?]+)",
-            "watch\\?v=([^&]+)"
+            "v=([a-zA-Z0-9_-]{11})",
+            "be/([a-zA-Z0-9_-]{11})",
+            "embed/([a-zA-Z0-9_-]{11})",
+            "shorts/([a-zA-Z0-9_-]{11})",
+            "watch\\?v=([a-zA-Z0-9_-]{11})"
         )
         for (p in patterns) {
             val match = Regex(p).find(url)
             if (match != null) return match.groupValues[1]
         }
         return null
+    }
+
+    private fun extractVideoIdFromFilename(filename: String): String? {
+        // Look for 11-char YouTube ID pattern. Usually it's in brackets [mjE36DCLfag]
+        val match = Regex("([a-zA-Z0-9_-]{11})").find(filename)
+        return match?.groupValues?.get(1)
     }
 
     suspend fun downloadSongs(
@@ -152,7 +161,7 @@ class DownloaderMusicRepository(
         val total = songs.size
 
         songs.asReversed().forEach { song ->
-            Log.i(TAG, "Starting download (reversed order): ${song.name} from ${song.url}")
+            Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
             val progressText = context.getString(R.string.playlist_songs_to_download, total) + 
                 " (Загружено: $downloaded / $total)"
             
@@ -207,15 +216,13 @@ class DownloaderMusicRepository(
 
         db.downloaderPlaylistDao().getById(playlist.id)?.let { entity: DownloaderPlaylistEntity ->
             db.downloaderPlaylistDao().update(entity.copy(lastDownloadTimestamp = now))
-            Log.d(TAG, "Updated DownloaderPlaylistEntity timestamp in DB")
-        } ?: Log.w(TAG, "Could not find DownloaderPlaylistEntity with id ${playlist.id}")
+        }
 
         folderUri?.toString()?.let { uriString ->
             db.playlistDao().getPlaylistByFolderUri(uriString)?.let { entity ->
                 db.playlistDao().insert(entity.copy(lastDownloadTimestamp = now))
-                Log.d(TAG, "Updated Player PlaylistEntity timestamp in DB for URI: $uriString")
-            } ?: Log.w(TAG, "Could not find Player PlaylistEntity in DB for URI: $uriString")
-        } ?: Log.w(TAG, "Folder URI is null, skipping Player PlaylistEntity update")
+            }
+        }
     }
 
     private fun parseRemoteSongs(jsonOutput: String): List<RemoteSong> {
@@ -313,34 +320,42 @@ class DownloaderMusicRepository(
         }
     }
 
-    private fun extractPurlFromMp3(uri: Uri): String? {
+    private fun extractMetadataFromMp3(uri: Uri): ExtractedMetadata {
         val tempFile = File.createTempFile("mp3meta", ".mp3", context.cacheDir)
         return try {
             context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output -> input.copyTo(output) }
-            } ?: return null
+                input.copyTo(tempFile.outputStream())
+            } ?: return ExtractedMetadata()
 
             val audioFile = AudioFileIO.read(tempFile)
-            val tag = audioFile.tag ?: return null
+            val tag = audioFile.tag ?: return ExtractedMetadata()
             
-            // 1. Try TXXX:purl (custom field we set)
+            var url: String? = null
+            var id: String? = null
+
             for (field in tag.fields) {
                 if (field is AbstractID3v2Frame) {
                     val body = field.body
                     if (body is FrameBodyTXXX && body.description == "purl" && body.text.isNotBlank()) {
-                        return body.text
+                        url = body.text
                     }
                 }
             }
             
-            // 2. Try standard Comment field (yt-dlp often puts URL there)
             val comment = tag.getFirst(org.jaudiotagger.tag.FieldKey.COMMENT)
-            if (!comment.isNullOrBlank() && comment.toString().startsWith("http")) return comment.toString()
+            if (!comment.isNullOrBlank()) {
+                val commentStr = comment.toString()
+                if (commentStr.startsWith("http")) {
+                    url = commentStr
+                } else if (commentStr.length == 11 && !commentStr.contains(" ")) {
+                    id = commentStr
+                }
+            }
 
-            null
+            ExtractedMetadata(url = url, id = id)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to read metadata from $uri", e)
-            null
+            Log.w(TAG, "Metadata extraction failed for $uri: ${e.message}")
+            ExtractedMetadata()
         } finally {
             tempFile.delete()
         }

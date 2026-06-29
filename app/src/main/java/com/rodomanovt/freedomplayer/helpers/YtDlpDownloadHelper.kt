@@ -44,10 +44,28 @@ object YtDlpDownloadHelper {
             Log.i(TAG, "downloadTrack called: url=$url")
             tempDir.mkdirs()
 
+            // Get video info to determine smart filename
+            val info = try {
+                val infoRequest = YoutubeDLRequest(url.trim())
+                YoutubeDL.getInstance().getInfo(infoRequest)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to get video info for smart naming", e)
+                null
+            }
+
+            val (artist, title) = TrackNameUtils.getSmartSongName(info?.uploader, info?.title)
+            val smartFileName = if (info != null) {
+                Log.i(TAG, "Smart naming: [Channel: ${info.uploader}, Title: ${info.title}] -> Result: [$artist - $title]")
+                "$artist - $title"
+            } else {
+                "%(title)s"
+            }
+            
             val request = YoutubeDLRequest(url.trim())
             YtDlpManager.configureAudioMp3Request(request)
-            // Use title and ID to avoid collisions and help with identification
-            request.addOption("-o", "${tempDir.absolutePath}/%(title)s [%(id)s].%(ext)s")
+            // Use smart title without ID in filename as requested. 
+            // Fallback to %(title)s if info was not available.
+            request.addOption("-o", "${tempDir.absolutePath}/$smartFileName.%(ext)s")
 
             YoutubeDL.getInstance().execute(request) { progress, eta, line ->
                 Log.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")

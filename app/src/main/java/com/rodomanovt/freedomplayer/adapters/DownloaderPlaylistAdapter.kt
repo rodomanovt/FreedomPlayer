@@ -46,12 +46,14 @@ class DownloaderPlaylistAdapter(
     ) : RecyclerView.ViewHolder(itemView) {
         private val nameView: TextView = itemView.findViewById(R.id.textViewPlaylistName)
         private val lastUpdateView: TextView = itemView.findViewById(R.id.textViewLastUpdate)
+        private val autoUpdateView: View = itemView.findViewById(R.id.imageViewAutoUpdate)
         private val downloadButton: ImageButton = itemView.findViewById(R.id.buttonDownload)
         private val progressBar: android.widget.ProgressBar = itemView.findViewById(R.id.progressBarDownload)
         private val menuButton: ImageButton = itemView.findViewById(R.id.buttonMenu)
 
         fun bind(playlist: DownloaderPlaylist, activeIds: Set<Long>) {
             nameView.text = playlist.name
+            autoUpdateView.isVisible = playlist.autoUpdate
             
             val timestamp = playlist.lastDownloadTimestamp
             if (timestamp != null) {

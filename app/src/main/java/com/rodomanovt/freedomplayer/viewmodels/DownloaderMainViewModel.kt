@@ -65,7 +65,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         _playlistMessage.value = null
     }
 
-    fun updatePlaylist(id: Long, name: String, url: String, autoUpdate: Boolean) {
+    fun updatePlaylist(id: Long, name: String, url: String, autoUpdate: Boolean, lastDownloadTimestamp: Long?) {
         viewModelScope.launch {
             try {
                 repository.updatePlaylist(
@@ -73,7 +73,8 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                         id = id,
                         name = name.trim(),
                         url = url.trim(),
-                        autoUpdate = autoUpdate
+                        autoUpdate = autoUpdate,
+                        lastDownloadTimestamp = lastDownloadTimestamp
                     )
                 )
                 loadPlaylists()
@@ -158,7 +159,14 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
 
     fun downloadAllPlaylists() {
         val currentPlaylists = _playlists.value ?: return
-        currentPlaylists.forEach { playlist ->
+        val playlistsToDownload = currentPlaylists.filter { it.autoUpdate }
+        
+        if (playlistsToDownload.isEmpty()) {
+            _playlistMessage.value = getApplication<Application>().getString(R.string.no_playlists_for_auto_update)
+            return
+        }
+
+        playlistsToDownload.forEach { playlist ->
             downloadPlaylist(playlist)
         }
     }

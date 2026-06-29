@@ -14,6 +14,9 @@ interface SongDao {
     @Query("DELETE FROM songs WHERE playlistPath = :folderUri")
     suspend fun deleteSongsByFolder(folderUri: String)
 
+    @Query("DELETE FROM songs WHERE songPath = :songPath")
+    suspend fun deleteSongByPath(songPath: String)
+
     @Query("SELECT * FROM songs WHERE playlistPath = :folderUri ORDER BY lastModified DESC, title ASC")
     suspend fun getSongsByFolder(folderUri: String): List<SongEntity>
 

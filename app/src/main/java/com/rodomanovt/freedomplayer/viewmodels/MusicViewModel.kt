@@ -61,7 +61,7 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     }
 
 
-    fun loadSongs(folderUri: Uri) {
+    fun loadSongs(folderUri: Uri, forceRefresh: Boolean = false) {
         viewModelScope.launch {
             try {
                 val playlist = repository.getPlaylistByUri(folderUri)
@@ -69,8 +69,8 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
 
                 val folder = resolveFolder(folderUri)
                 if (folder != null && folder.exists()) {
-                    val songsFromDb = repository.getSongsFromDb(folderUri.toString())
-                    if (songsFromDb.isNotEmpty()) {
+                    val songsFromDb = repository.getSongsFromDb(folderUri.toString(), validateFiles = forceRefresh)
+                    if (songsFromDb.isNotEmpty() && !forceRefresh) {
                         _songs.value = songsFromDb
                         if (needsMetadataRefresh(songsFromDb)) {
                             viewModelScope.launch {
@@ -84,7 +84,7 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                             }
                         }
                     } else {
-                        _songs.value = emptyList()
+                        _songs.value = if (forceRefresh) songsFromDb else emptyList()
                         val scannedSongs = repository.scanAndSaveSongs(folder) { indexedSongs ->
                             viewModelScope.launch(Dispatchers.Main.immediate) {
                                 _songs.value = indexedSongs

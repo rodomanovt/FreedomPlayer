@@ -175,7 +175,7 @@ class DownloaderMainFragment : Fragment() {
             initialUrl = playlist.url,
             initialAutoUpdate = playlist.autoUpdate,
             onSubmit = { name, url, autoUpdate ->
-                viewModel.updatePlaylist(playlist.id, name, url, autoUpdate)
+                viewModel.updatePlaylist(playlist.id, name, url, autoUpdate, playlist.lastDownloadTimestamp)
             }
         )
     }

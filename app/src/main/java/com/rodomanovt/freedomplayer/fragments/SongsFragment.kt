@@ -66,6 +66,12 @@ class SongsFragment : Fragment() {
             }
         )
 
+        binding.refreshBtn.setOnClickListener {
+            arguments?.getString("folderUri")?.let { uriString ->
+                viewModel.loadSongs(Uri.parse(uriString), forceRefresh = true)
+            }
+        }
+
         arguments?.getString("folderUri")?.let { uriString ->
             val folderUri = Uri.parse(uriString)
             playlistName = getPlaylistNameFromUri(folderUri)

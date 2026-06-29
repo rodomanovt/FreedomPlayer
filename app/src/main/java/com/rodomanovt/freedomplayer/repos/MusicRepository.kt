@@ -65,10 +65,46 @@ class MusicRepository(private val context: Context) {
         songs
     }
 
-    suspend fun getSongsFromDb(folderUri: String): List<Song> {
+    suspend fun getSongsFromDb(folderUri: String, validateFiles: Boolean = false): List<Song> {
         return withContext(Dispatchers.IO) {
             val songs = songDao.getSongsByFolder(folderUri)
             Log.d("MusicRepository", "Загружено из БД песен для $folderUri: ${songs.size}")
+            
+            if (validateFiles) {
+                val folder = DocumentFile.fromTreeUri(context, Uri.parse(folderUri))
+                if (folder != null && folder.exists()) {
+                    val currentFiles = folder.listFiles()
+                    val currentFileUris = currentFiles.filter { it.isFile && isAudioFile(it) }
+                        .map { it.uri.toString() }.toSet()
+                    
+                    val validSongs = songs.filter { it.songPath in currentFileUris }
+                    
+                    if (validSongs.size < songs.size) {
+                        val staleSongs = songs.filter { it.songPath !in currentFileUris }
+                        staleSongs.forEach { 
+                            songDao.deleteSongByPath(it.songPath)
+                            Log.d("MusicRepository", "Удален отсутствующий файл из БД: ${it.songPath}")
+                        }
+                        
+                        // Обновляем метаданные плейлиста, так как количество треков изменилось
+                        val existingPlaylist = playlistDao.getPlaylistByFolderUri(folderUri)
+                        if (existingPlaylist != null) {
+                            persistPlaylistMetadata(
+                                Playlist(
+                                    name = existingPlaylist.name,
+                                    tracksCount = validSongs.size,
+                                    folderUri = folder.uri,
+                                    lastDownloadTimestamp = existingPlaylist.lastDownloadTimestamp,
+                                    songs = emptyList()
+                                )
+                            )
+                        }
+                    }
+                    
+                    return@withContext validSongs.map { it.toDomain() }
+                }
+            }
+            
             songs.map { it.toDomain() }
         }
     }
@@ -77,23 +113,29 @@ class MusicRepository(private val context: Context) {
         folder: DocumentFile,
         onProgress: (List<Song>) -> Unit
     ): List<Song> = withContext(Dispatchers.IO) {
-        val songs = mutableListOf<Song>()
+        val folderUriStr = folder.uri.toString()
+        val allFiles = folder.listFiles()
+        val audioFiles = allFiles.filter { it.isFile && isAudioFile(it) }
+        val audioFileUris = audioFiles.map { it.uri.toString() }.toSet()
 
+        // Удаляем треки, которых больше нет в папке
+        val dbSongs = songDao.getSongsByFolder(folderUriStr)
+        dbSongs.forEach { dbSong ->
+            if (dbSong.songPath !in audioFileUris) {
+                songDao.deleteSongByPath(dbSong.songPath)
+                Log.d("MusicRepository", "Removed deleted file from DB: ${dbSong.songPath}")
+            }
+        }
+
+        val songs = mutableListOf<Song>()
         Log.d("MusicRepository", "Начинаем инкрементное сканирование папки: ${folder.name}")
 
-        folder.listFiles().forEach { file ->
-            if (file.isFile && isAudioFile(file)) {
-                val song = readSong(file, folder)
-                insertSongByModifiedTime(songs, song)
-                songDao.insertAll(listOf(song.toEntity()))
-                onProgress(songs.toList())
-                Log.d("MusicRepository", "Indexed file ${song.songPath}")
-            } else {
-                Log.d(
-                    "MusicRepository",
-                    "Skipped file name=${file.name}, isFile=${file.isFile}, type=${file.type}"
-                )
-            }
+        audioFiles.forEach { file ->
+            val song = readSong(file, folder)
+            insertSongByModifiedTime(songs, song)
+            songDao.insertAll(listOf(song.toEntity()))
+            onProgress(songs.toList())
+            Log.d("MusicRepository", "Indexed file ${song.songPath}")
         }
 
         val existingPlaylist = playlistDao.getPlaylistByFolderUri(folder.uri.toString())
@@ -116,18 +158,30 @@ class MusicRepository(private val context: Context) {
         currentSongs: List<Song>,
         onProgress: (List<Song>) -> Unit
     ): List<Song> = withContext(Dispatchers.IO) {
-        val songs = currentSongs.toMutableList()
+        val folderUriStr = folder.uri.toString()
+        val allFiles = folder.listFiles()
+        val audioFiles = allFiles.filter { it.isFile && isAudioFile(it) }
+        val audioFileUris = audioFiles.map { it.uri.toString() }.toSet()
+
+        // Удаляем треки, которых больше нет в папке
+        val dbSongs = songDao.getSongsByFolder(folderUriStr)
+        dbSongs.forEach { dbSong ->
+            if (dbSong.songPath !in audioFileUris) {
+                songDao.deleteSongByPath(dbSong.songPath)
+                Log.d("MusicRepository", "Removed deleted file from DB: ${dbSong.songPath}")
+            }
+        }
+
+        val songs = currentSongs.filter { it.songPath in audioFileUris }.toMutableList()
 
         Log.d("MusicRepository", "Начинаем обогащение метаданных папки: ${folder.name}")
 
-        folder.listFiles().forEach { file ->
-            if (file.isFile && isAudioFile(file)) {
-                val song = readSongWithMetadata(file, folder)
-                songDao.insertAll(listOf(song.toEntity()))
-                upsertSongByPath(songs, song)
-                onProgress(songs.toList())
-                Log.d("MusicRepository", "Enriched file ${song.songPath}")
-            }
+        audioFiles.forEach { file ->
+            val song = readSongWithMetadata(file, folder)
+            songDao.insertAll(listOf(song.toEntity()))
+            upsertSongByPath(songs, song)
+            onProgress(songs.toList())
+            Log.d("MusicRepository", "Enriched file ${song.songPath}")
         }
 
         val existingPlaylist = playlistDao.getPlaylistByFolderUri(folder.uri.toString())

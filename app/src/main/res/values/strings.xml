@@ -112,4 +112,6 @@
     <string name="playlist_folder_rename_failed">Не удалось переименовать папку в «%1$s»</string>
     <string name="playlist_songs_to_download">Найдено треков для скачивания: %1$d</string>
     <string name="playlist_scan_failed">Не удалось получить список треков плейлиста</string>
+    <string name="no_playlists_for_auto_update">Нет плейлистов с включенным автообновлением</string>
+    <string name="refresh">Переиндексировать</string>
 </resources>

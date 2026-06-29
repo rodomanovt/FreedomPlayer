@@ -12,20 +12,33 @@
         tools:context=".fragments.SongsFragment"
         android:orientation="vertical">
 
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:orientation="horizontal">
+            android:layout_height="50dp">
 
             <ImageView
                 android:id="@+id/backBtn"
                 android:layout_width="50dp"
                 android:layout_height="50dp"
-                android:src="@drawable/baseline_arrow_back_24"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
-                android:padding="10dp"/>
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/baseline_arrow_back_24" />
 
-        </LinearLayout>
+            <ImageView
+                android:id="@+id/refreshBtn"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_alignParentEnd="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/baseline_refresh_24"
+                android:contentDescription="@string/refresh" />
+
+        </RelativeLayout>
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerViewSongs"

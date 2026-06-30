@@ -3,13 +3,15 @@ package com.rodomanovt.freedomplayer.activities
 import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
-import android.widget.Toast
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
-import androidx.drawerlayout.widget.DrawerLayout
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.navigation.NavigationView
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.ActivityDownloaderBinding
+import com.rodomanovt.freedomplayer.helpers.DownloadLogger
+import kotlinx.coroutines.launch
 
 class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener{
 
@@ -22,6 +24,27 @@ class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         setContentView(binding.root)
 
         binding.navView.setNavigationItemSelectedListener(this)
+
+        setupConsole()
+    }
+
+    private fun setupConsole() {
+        binding.btnToggleConsole.setOnClickListener {
+            binding.consoleContainer.visibility = View.VISIBLE
+        }
+
+        binding.btnCloseConsole.setOnClickListener {
+            binding.consoleContainer.visibility = View.GONE
+        }
+
+        lifecycleScope.launch {
+            DownloadLogger.logs.collect { logs ->
+                binding.consoleText.text = logs.joinToString("\n")
+                binding.consoleScroll.post {
+                    binding.consoleScroll.fullScroll(View.FOCUS_DOWN)
+                }
+            }
+        }
     }
 
     override fun onNavigationItemSelected(item: MenuItem):Boolean {

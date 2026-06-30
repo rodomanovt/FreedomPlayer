@@ -6,27 +6,64 @@
     <data>
 
     </data>
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fitsSystemWindows="true"
-        tools:context=".activities.SettingsActivity">
+        tools:context=".activities.DownloaderActivity">
 
         <androidx.drawerlayout.widget.DrawerLayout
             android:id="@+id/drawer_layout"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fitsSystemWindows="true"
-            tools:openDrawer="start">
+            android:layout_height="match_parent">
 
-            <fragment
-                android:id="@+id/settings_nav_host_fragment_container"
-                android:name="androidx.navigation.fragment.NavHostFragment"
+            <!-- Main Content Area -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                app:defaultNavHost="true"
-                app:navGraph="@navigation/downloader_nav_graph"/>
+                android:orientation="vertical">
 
+                <LinearLayout
+                    android:id="@+id/downloader_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/downloaderText"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
+
+                    <ImageButton
+                        android:id="@+id/btn_toggle_console"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="Toggle Console"
+                        android:padding="8dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_terminal"
+                        app:tint="?android:attr/textColorPrimary" />
+
+                </LinearLayout>
+
+                <fragment
+                    android:id="@+id/settings_nav_host_fragment_container"
+                    android:name="androidx.navigation.fragment.NavHostFragment"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    app:defaultNavHost="true"
+                    app:navGraph="@navigation/downloader_nav_graph" />
+
+            </LinearLayout>
+
+            <!-- Navigation Drawer -->
             <com.google.android.material.navigation.NavigationView
                 android:id="@+id/nav_view"
                 android:layout_width="wrap_content"
@@ -34,14 +71,72 @@
                 android:layout_gravity="start"
                 android:fitsSystemWindows="true"
                 app:headerLayout="@layout/drawer_header_main"
-                app:menu="@menu/drawer_menu"/>
+                app:menu="@menu/drawer_menu" />
 
         </androidx.drawerlayout.widget.DrawerLayout>
 
+        <!-- Console Overlay (Outside DrawerLayout to cover everything) -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/console_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/black"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:visibility="visible">
+
+            <TextView
+                android:id="@+id/console_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:text="Console"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <ImageButton
+                android:id="@+id/btn_close_console"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Close Console"
+                android:padding="12dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/baseline_close_24"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:tint="@color/white" />
+
+            <ScrollView
+                android:id="@+id/console_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:padding="16dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/console_title">
+
+                <TextView
+                    android:id="@+id/console_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    tools:text="[12:00:00] INFO: Starting...\n[12:00:01] ERROR: Something failed" />
+            </ScrollView>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
     </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-
-
 
 </layout>

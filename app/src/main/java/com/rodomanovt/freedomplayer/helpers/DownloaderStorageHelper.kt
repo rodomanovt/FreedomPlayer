@@ -2,7 +2,6 @@ package com.rodomanovt.freedomplayer.helpers
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
 
@@ -67,7 +66,7 @@ class DownloaderStorageHelper(private val context: Context) {
             )
         }
 
-        Log.i(TAG, "Renamed playlist folder: $oldFolderName -> $newFolderName")
+        DownloadLogger.i(TAG, "Renamed playlist folder: $oldFolderName -> $newFolderName")
         return Result.success(oldFolder.uri)
     }
 

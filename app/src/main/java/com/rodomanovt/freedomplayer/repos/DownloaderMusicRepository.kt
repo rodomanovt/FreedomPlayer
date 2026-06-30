@@ -5,10 +5,10 @@ import android.app.NotificationManager
 import android.content.Context
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
+import com.rodomanovt.freedomplayer.helpers.DownloadLogger
 import com.rodomanovt.freedomplayer.helpers.DownloaderStorageHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
@@ -44,12 +44,12 @@ class DownloaderMusicRepository(
             YtDlpManager.configureRequest(request)
 
             val response = YoutubeDL.getInstance().execute(request)
-            Log.d(TAG, "yt-dlp stdout length=${response.out.length}, stderr length=${response.err.length}")
+            DownloadLogger.d(TAG, "yt-dlp stdout length=${response.out.length}, stderr length=${response.err.length}")
             parseRemoteSongs(response.out).also { songs ->
                 if (songs.isEmpty()) {
-                    Log.w(TAG, "No songs parsed from playlist.")
+                    DownloadLogger.w(TAG, "No songs parsed from playlist.")
                 } else {
-                    Log.i(TAG, "Parsed ${songs.size} remote songs from playlist")
+                    DownloadLogger.i(TAG, "Parsed ${songs.size} remote songs from playlist")
                 }
             }
         }
@@ -85,7 +85,7 @@ class DownloaderMusicRepository(
                 extractVideoIdFromFilename(name)?.let { localDownloadedIds.add(it.lowercase()) }
             }
 
-            Log.i(
+            DownloadLogger.i(
                 TAG,
                 "Playlist '${playlist.name}': remote=${allRemoteSongs.size}, local files=${allLocalSongUris.size}, known unique IDs=${localDownloadedIds.size}"
             )
@@ -95,16 +95,16 @@ class DownloaderMusicRepository(
                 val normalizedUrl = normalizeUrl(song.url)
 
                 if (localDownloadedUrls.contains(normalizedUrl)) {
-                    Log.d(TAG, "Skipping '${song.name}': found by URL metadata")
+                    DownloadLogger.d(TAG, "Skipping '${song.name}': found by URL metadata")
                     return@filter false
                 }
 
                 if (videoId != null && localDownloadedIds.contains(videoId)) {
-                    Log.d(TAG, "Skipping '${song.name}': found by Video ID ($videoId)")
+                    DownloadLogger.d(TAG, "Skipping '${song.name}': found by Video ID ($videoId)")
                     return@filter false
                 }
 
-                Log.d(TAG, "Adding '${song.name}' to download queue (ID: $videoId)")
+                DownloadLogger.d(TAG, "Adding '${song.name}' to download queue (ID: $videoId)")
                 true
             }
         }
@@ -162,9 +162,9 @@ class DownloaderMusicRepository(
 
         try {
             songs.asReversed().forEach { song ->
-                Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
+                DownloadLogger.i(TAG, "Starting download: ${song.name} from ${song.url}")
                 val progressText = context.getString(R.string.playlist_songs_to_download, total) +
-                        " (Загружено: $downloaded / $total)"
+                        " (Downloaded: $downloaded / $total)"
 
                 builder.setContentText("${song.name}\n$progressText")
                     .setProgress(total, downloaded, false)
@@ -178,9 +178,9 @@ class DownloaderMusicRepository(
                 )
                 if (result.isSuccess) {
                     downloaded++
-                    Log.i(TAG, "Successfully downloaded: ${song.name}")
+                    DownloadLogger.i(TAG, "Successfully downloaded: ${song.name}")
                 } else {
-                    Log.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
+                    DownloadLogger.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
                 }
             }
             
@@ -191,11 +191,11 @@ class DownloaderMusicRepository(
             notificationManager.notify(notificationId, builder.build())
 
         } catch (e: kotlinx.coroutines.CancellationException) {
-            Log.i(TAG, "Download job for playlist ${playlist.name} cancelled")
+            DownloadLogger.i(TAG, "Download job for playlist ${playlist.name} cancelled")
             notificationManager.cancel(notificationId)
             throw e
         } catch (e: Exception) {
-            Log.e(TAG, "Error during playlist download: ${e.message}")
+            DownloadLogger.e(TAG, "Error during playlist download: ${e.message}")
             builder.setContentTitle(context.getString(R.string.download_failed, e.message))
                 .setOngoing(false)
                 .setProgress(0, 0, false)
@@ -203,14 +203,14 @@ class DownloaderMusicRepository(
         } finally {
             if (downloaded > 0) {
                 playlistFolder?.let { folder ->
-                    Log.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
+                    DownloadLogger.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
                     MusicRepository(context).scanAndSaveSongs(folder) { }
                 }
             }
             updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
         }
 
-        Log.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
+        DownloadLogger.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
     }
 
     suspend fun updatePlaylistTimestamp(playlist: DownloaderPlaylist) = withContext(Dispatchers.IO) {
@@ -222,7 +222,7 @@ class DownloaderMusicRepository(
         val now = System.currentTimeMillis()
         val db = AppDatabase.getInstance(context)
 
-        Log.i(TAG, "Updating last download timestamp for playlist: ${playlist.name} to $now")
+        DownloadLogger.i(TAG, "Updating last download timestamp for playlist: ${playlist.name} to $now")
 
         db.downloaderPlaylistDao().getById(playlist.id)?.let { entity: DownloaderPlaylistEntity ->
             db.downloaderPlaylistDao().update(entity.copy(lastDownloadTimestamp = now))
@@ -364,7 +364,7 @@ class DownloaderMusicRepository(
 
             ExtractedMetadata(url = url, id = id)
         } catch (e: Exception) {
-            Log.w(TAG, "Metadata extraction failed for $uri: ${e.message}")
+            DownloadLogger.w(TAG, "Metadata extraction failed for $uri: ${e.message}")
             ExtractedMetadata()
         } finally {
             tempFile.delete()

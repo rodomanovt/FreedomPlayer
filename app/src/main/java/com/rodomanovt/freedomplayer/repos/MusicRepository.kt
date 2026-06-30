@@ -49,7 +49,7 @@ class MusicRepository(private val context: Context) {
             }
         }
 
-        Log.d("MusicRepository", "Найдено папок-плейлистов: ${discoveredPlaylists.size}")
+        Log.d("MusicRepository", "Discovered playlist folders: ${discoveredPlaylists.size}")
         discoveredPlaylists.sortedBy { it.name.lowercase() }
     }
 
@@ -61,14 +61,14 @@ class MusicRepository(private val context: Context) {
 
     suspend fun getSongsFromFolder(folder: DocumentFile): List<Song> = withContext(Dispatchers.IO) {
         val songs = scanSongs(folder)
-        Log.d("MusicRepository", "Загружено треков: ${songs.size}")
+        Log.d("MusicRepository", "Loaded tracks: ${songs.size}")
         songs
     }
 
     suspend fun getSongsFromDb(folderUri: String, validateFiles: Boolean = false): List<Song> {
         return withContext(Dispatchers.IO) {
             val songs = songDao.getSongsByFolder(folderUri)
-            Log.d("MusicRepository", "Загружено из БД песен для $folderUri: ${songs.size}")
+            Log.d("MusicRepository", "Loaded songs from DB for $folderUri: ${songs.size}")
             
             if (validateFiles) {
                 val folder = DocumentFile.fromTreeUri(context, Uri.parse(folderUri))
@@ -83,10 +83,10 @@ class MusicRepository(private val context: Context) {
                         val staleSongs = songs.filter { it.songPath !in currentFileUris }
                         staleSongs.forEach { 
                             songDao.deleteSongByPath(it.songPath)
-                            Log.d("MusicRepository", "Удален отсутствующий файл из БД: ${it.songPath}")
+                            Log.d("MusicRepository", "Removed missing file from DB: ${it.songPath}")
                         }
                         
-                        // Обновляем метаданные плейлиста, так как количество треков изменилось
+                        // Updating playlist metadata because track count has changed
                         val existingPlaylist = playlistDao.getPlaylistByFolderUri(folderUri)
                         if (existingPlaylist != null) {
                             persistPlaylistMetadata(
@@ -128,7 +128,7 @@ class MusicRepository(private val context: Context) {
         }
 
         val songs = mutableListOf<Song>()
-        Log.d("MusicRepository", "Начинаем инкрементное сканирование папки: ${folder.name}")
+        Log.d("MusicRepository", "Starting incremental folder scan: ${folder.name}")
 
         audioFiles.forEach { file ->
             val song = readSong(file, folder)
@@ -174,7 +174,7 @@ class MusicRepository(private val context: Context) {
 
         val songs = currentSongs.filter { it.songPath in audioFileUris }.toMutableList()
 
-        Log.d("MusicRepository", "Начинаем обогащение метаданных папки: ${folder.name}")
+        Log.d("MusicRepository", "Starting folder metadata enrichment: ${folder.name}")
 
         audioFiles.forEach { file ->
             val song = readSongWithMetadata(file, folder)
@@ -252,7 +252,7 @@ class MusicRepository(private val context: Context) {
     private fun scanSongs(folder: DocumentFile): List<Song> {
         val songs = mutableListOf<Song>()
 
-        Log.d("MusicRepository", "Начинаем быстрое сканирование папки: ${folder.name}")
+        Log.d("MusicRepository", "Starting fast folder scan: ${folder.name}")
 
         folder.listFiles().forEach { file ->
             if (file.isFile && isAudioFile(file)) {
@@ -292,9 +292,7 @@ class MusicRepository(private val context: Context) {
             val pfd = context.contentResolver.openFileDescriptor(file.uri, "r")
             pfd?.use {
                 retriever.setDataSource(it.fileDescriptor)
-                val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                    ?.takeIf { value -> value.isNotBlank() }
-                    ?: file.name?.substringBeforeLast('.')?.ifBlank { null }
+                val title = file.name?.substringBeforeLast('.')?.ifBlank { null }
                     ?: file.name
                     ?: "Unknown"
                 val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)

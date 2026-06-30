@@ -1,9 +1,9 @@
 package com.rodomanovt.freedomplayer.helpers
 
 import android.content.Context
-import android.util.Log
 import android.widget.Toast
 import androidx.annotation.StringRes
+import com.rodomanovt.freedomplayer.helpers.DownloadLogger
 
 object ToastLog {
 
@@ -13,7 +13,7 @@ object ToastLog {
         length: Int = Toast.LENGTH_SHORT,
         tag: String = TAG
     ) {
-        Log.i(tag, message)
+        DownloadLogger.i(tag, message)
         Toast.makeText(context, message, length).show()
     }
 

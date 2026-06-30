@@ -58,19 +58,19 @@ class PlaylistsFragment : Fragment() {
         binding.buttonReindexPlaylists.setOnClickListener {
             val uri = rootFolderUri
             if (uri != null) {
-                Toast.makeText(requireContext(), "Переиндексация запущена", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Reindexing started", Toast.LENGTH_SHORT).show()
                 viewModel.reindexAllPlaylists(uri)
             } else {
-                Toast.makeText(requireContext(), "Выберите корневую папку", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Select root folder", Toast.LENGTH_SHORT).show()
             }
         }
 
         rootFolderUri?.let { uri ->
-            Log.d("PlaylistsFragment", "Загружаем существующие и новые плейлисты...")
+            Log.d("PlaylistsFragment", "Loading existing and new playlists...")
             viewModel.loadExistingAndCheckForNewPlaylists(uri)
 
             viewModel.playlists.observe(viewLifecycleOwner) { playlists ->
-                Log.d("PlaylistsFragment", "Получено плейлистов: ${playlists.size}")
+                Log.d("PlaylistsFragment", "Playlists received: ${playlists.size}")
                 adapter.submitList(playlists)
             }
 
@@ -79,8 +79,8 @@ class PlaylistsFragment : Fragment() {
                 binding.reindexProgress.visibility = if (isReindexing) View.VISIBLE else View.GONE
             }
         } ?: run {
-            Log.e("PlaylistsFragment", "Корневая папка не задана")
-            Toast.makeText(requireContext(), "Выберите корневую папку", Toast.LENGTH_LONG).show()
+            Log.e("PlaylistsFragment", "Root folder is not set")
+            Toast.makeText(requireContext(), "Select root folder", Toast.LENGTH_LONG).show()
         }
     }
 }

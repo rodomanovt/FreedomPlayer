@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
-import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -47,13 +46,13 @@ object YtDlpDownloadHelper {
         val job = coroutineContext[kotlinx.coroutines.Job]
         val registration = job?.invokeOnCompletion {
             if (it is kotlinx.coroutines.CancellationException) {
-                Log.i(TAG, "Cancellation received for tag: $actualTag")
+                DownloadLogger.i(TAG, "Cancellation received for tag: $actualTag")
                 YoutubeDL.getInstance().destroyProcessById(actualTag)
             }
         }
 
         try {
-            Log.i(TAG, "downloadTrack called: url=$url, tag=$actualTag")
+            DownloadLogger.i(TAG, "downloadTrack called: url=$url, tag=$actualTag")
             tempDir.mkdirs()
 
             // Get video info to determine smart filename
@@ -62,13 +61,13 @@ object YtDlpDownloadHelper {
                 YoutubeDL.getInstance().getInfo(infoRequest)
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
-                Log.w(TAG, "Failed to get video info for smart naming", e)
+                DownloadLogger.w(TAG, "Failed to get video info for smart naming")
                 null
             }
 
             val (artist, title) = TrackNameUtils.getSmartSongName(info?.uploader, info?.title)
             val smartFileName = if (info != null) {
-                Log.i(TAG, "Smart naming: [Channel: ${info.uploader}, Title: ${info.title}] -> Result: [$artist - $title]")
+                DownloadLogger.i(TAG, "Smart naming: [Channel: ${info.uploader}, Title: ${info.title}] -> Result: [$artist - $title]")
                 "$artist - $title"
             } else {
                 "%(title)s"
@@ -79,7 +78,7 @@ object YtDlpDownloadHelper {
             request.addOption("-o", "${tempDir.absolutePath}/$smartFileName.%(ext)s")
 
             YoutubeDL.getInstance().execute(request, actualTag) { progress, eta, line ->
-                Log.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")
+                DownloadLogger.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")
                 onProgress(progress)
             }
 
@@ -101,17 +100,17 @@ object YtDlpDownloadHelper {
             }
 
             if (success) {
-                Log.i(TAG, "Download finished and file moved to destination")
+                DownloadLogger.i(TAG, "Download finished and file moved to destination")
                 Result.success(resultFile)
             } else {
                 throw Exception("Failed to copy file to destination")
             }
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) {
-                Log.i(TAG, "Download cancelled: url=$url")
+                DownloadLogger.i(TAG, "Download cancelled: url=$url")
                 throw e
             }
-            Log.e(TAG, "Download failed: url=$url", e)
+            DownloadLogger.e(TAG, "Download failed: url=$url", e)
             Result.failure(e)
         } finally {
             registration?.dispose()
@@ -130,7 +129,7 @@ object YtDlpDownloadHelper {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error copying to file: ${destination.absolutePath}", e)
+            DownloadLogger.e(TAG, "Error copying to file: ${destination.absolutePath}", e)
             false
         }
     }
@@ -148,7 +147,7 @@ object YtDlpDownloadHelper {
             }
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error copying to DocumentFile: ${destDir.uri}", e)
+            DownloadLogger.e(TAG, "Error copying to DocumentFile: ${destDir.uri}", e)
             false
         }
     }
@@ -183,7 +182,7 @@ object YtDlpDownloadHelper {
                     }
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to resolve URI to path: $uri", e)
+                DownloadLogger.w(TAG, "Failed to resolve URI to path: $uri")
             }
         }
         return null

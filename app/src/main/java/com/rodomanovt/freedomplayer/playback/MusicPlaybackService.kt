@@ -405,9 +405,7 @@ class MusicPlaybackService : Service() {
             retriever.setDataSource(fd.fileDescriptor)
             player.setDataSource(fd.fileDescriptor)
 
-            val title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                ?.takeIf { it.isNotBlank() }
-                ?: song.title
+            val title = song.title
             val artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
                 ?.takeIf { it.isNotBlank() }
                 ?: song.artist

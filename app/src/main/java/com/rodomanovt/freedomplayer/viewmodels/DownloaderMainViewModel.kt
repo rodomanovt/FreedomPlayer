@@ -1,7 +1,6 @@
 package com.rodomanovt.freedomplayer.viewmodels
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -9,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
 import com.rodomanovt.freedomplayer.R
+import com.rodomanovt.freedomplayer.helpers.DownloadLogger
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
 import com.rodomanovt.freedomplayer.repos.DownloaderRepository
 import kotlinx.coroutines.launch
@@ -50,7 +50,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun stopDownload(playlistId: Long) {
-        Log.i(TAG, "Stopping download for playlist ID: $playlistId")
+        DownloadLogger.i(TAG, "Stopping download for playlist ID: $playlistId")
         downloadJobs[playlistId]?.cancel()
         downloadJobs.remove(playlistId)
         
@@ -66,7 +66,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                 repository.addPlaylist(name, url, autoUpdate)
                 loadPlaylists()
             } catch (e: Exception) {
-                Log.e(TAG, "Ошибка добавления плейлиста", e)
+                DownloadLogger.e(TAG, "Error adding playlist", e)
                 _playlistMessage.value = e.message
                     ?: getApplication<Application>().getString(R.string.playlist_add_failed)
             }
@@ -91,7 +91,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                 )
                 loadPlaylists()
             } catch (e: Exception) {
-                Log.e(TAG, "Ошибка обновления плейлиста", e)
+                DownloadLogger.e(TAG, "Error updating playlist", e)
                 _playlistMessage.value = e.message
                     ?: getApplication<Application>().getString(R.string.playlist_update_failed)
             }
@@ -104,14 +104,14 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                 repository.deletePlaylist(id)
                 loadPlaylists()
             } catch (e: Exception) {
-                Log.e("DownloaderMainViewModel", "Ошибка удаления плейлиста", e)
+                DownloadLogger.e("DownloaderMainViewModel", "Error deleting playlist", e)
             }
         }
     }
 
     fun downloadTrack(url: String) {
         viewModelScope.launch {
-            Log.i(TAG, "downloadTrack requested: $url")
+            DownloadLogger.i(TAG, "downloadTrack requested: $url")
             _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
             YtDlpManager.ensureUpdated(getApplication())
             _trackDownloadState.value = TrackDownloadState.InProgress
@@ -133,24 +133,24 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     fun scanPlaylistForDownload(playlist: DownloaderPlaylist) {
         viewModelScope.launch {
             try {
-                Log.i(TAG, "Scanning playlist for download: ${playlist.name} (${playlist.url})")
+                DownloadLogger.i(TAG, "Scanning playlist for download: ${playlist.name} (${playlist.url})")
                 _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
                 YtDlpManager.ensureUpdated(getApplication())
                 val songs = repository.getSongsToDownload(playlist)
                 songs.forEachIndexed { index, song ->
-                    Log.i(
+                    DownloadLogger.i(
                         TAG,
                         "Song to download [${index + 1}/${songs.size}]: ${song.channel} - ${song.name} (${song.url})"
                     )
                 }
-                Log.i(TAG, "Total songs to download for '${playlist.name}': ${songs.size}")
+                DownloadLogger.i(TAG, "Total songs to download for '${playlist.name}': ${songs.size}")
                 _trackDownloadState.value = TrackDownloadState.Idle
                 _playlistMessage.value = getApplication<Application>().getString(
                     R.string.playlist_songs_to_download,
                     songs.size
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to scan playlist '${playlist.name}'", e)
+                DownloadLogger.e(TAG, "Failed to scan playlist '${playlist.name}'", e)
                 _trackDownloadState.value = TrackDownloadState.Idle
                 _playlistMessage.value = e.message
                     ?: getApplication<Application>().getString(R.string.playlist_scan_failed)
@@ -194,7 +194,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
 
         val job = viewModelScope.launch {
             try {
-                Log.i(TAG, "Starting playlist download from queue: ${playlist.name}")
+                DownloadLogger.i(TAG, "Starting playlist download from queue: ${playlist.name}")
                 _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
                 YtDlpManager.ensureUpdated(getApplication())
 
@@ -208,14 +208,14 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                 } else {
                     repository.updatePlaylistTimestamp(playlist)
                     _trackDownloadState.value = TrackDownloadState.Idle
-                    _playlistMessage.value = "Нет новых треков для скачивания в ${playlist.name}"
+                    _playlistMessage.value = "No new tracks to download in ${playlist.name}"
                     refreshPlaylists()
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
-                Log.i(TAG, "Download cancelled for playlist '${playlist.name}'")
+                DownloadLogger.i(TAG, "Download cancelled for playlist '${playlist.name}'")
                 _trackDownloadState.value = TrackDownloadState.Idle
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to download playlist '${playlist.name}'", e)
+                DownloadLogger.e(TAG, "Failed to download playlist '${playlist.name}'", e)
                 _trackDownloadState.value = TrackDownloadState.Error(e.message ?: "Unknown error")
             } finally {
                 downloadJobs.remove(playlist.id)
@@ -231,7 +231,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
             val list = repository.getAllPlaylists()
             _playlists.postValue(list)
         } catch (e: Exception) {
-            Log.e(TAG, "Ошибка обновления плейлистов", e)
+            DownloadLogger.e(TAG, "Error updating playlists", e)
         }
     }
 

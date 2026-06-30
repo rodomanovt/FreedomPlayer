@@ -17,6 +17,7 @@ import java.util.Locale
 
 class DownloaderPlaylistAdapter(
     private val onDownloadClick: (DownloaderPlaylist) -> Unit,
+    private val onStopDownloadClick: (DownloaderPlaylist) -> Unit,
     private val onMenuClick: (DownloaderPlaylist, View) -> Unit
 ) : ListAdapter<DownloaderPlaylist, DownloaderPlaylistAdapter.ViewHolder>(Comparator) {
 
@@ -26,7 +27,7 @@ class DownloaderPlaylistAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.card_downloader_playlist, parent, false)
-        return ViewHolder(view, onDownloadClick, onMenuClick, dateFormat)
+        return ViewHolder(view, onDownloadClick, onStopDownloadClick, onMenuClick, dateFormat)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
@@ -41,6 +42,7 @@ class DownloaderPlaylistAdapter(
     class ViewHolder(
         itemView: View,
         private val onDownloadClick: (DownloaderPlaylist) -> Unit,
+        private val onStopDownloadClick: (DownloaderPlaylist) -> Unit,
         private val onMenuClick: (DownloaderPlaylist, View) -> Unit,
         private val dateFormat: SimpleDateFormat
     ) : RecyclerView.ViewHolder(itemView) {
@@ -48,7 +50,8 @@ class DownloaderPlaylistAdapter(
         private val lastUpdateView: TextView = itemView.findViewById(R.id.textViewLastUpdate)
         private val autoUpdateView: View = itemView.findViewById(R.id.imageViewAutoUpdate)
         private val downloadButton: ImageButton = itemView.findViewById(R.id.buttonDownload)
-        private val progressBar: android.widget.ProgressBar = itemView.findViewById(R.id.progressBarDownload)
+        private val progressLayout: View = itemView.findViewById(R.id.layoutDownloadProgress)
+        private val stopButton: ImageButton = itemView.findViewById(R.id.buttonStopDownload)
         private val menuButton: ImageButton = itemView.findViewById(R.id.buttonMenu)
 
         fun bind(playlist: DownloaderPlaylist, activeIds: Set<Long>) {
@@ -65,11 +68,10 @@ class DownloaderPlaylistAdapter(
 
             val isQueuedOrDownloading = activeIds.contains(playlist.id)
             downloadButton.isVisible = !isQueuedOrDownloading
-            progressBar.isVisible = isQueuedOrDownloading
-            // Current playlist is disabled if it's already in the active set
-            downloadButton.isEnabled = !isQueuedOrDownloading
-
+            progressLayout.isVisible = isQueuedOrDownloading
+            
             downloadButton.setOnClickListener { onDownloadClick(playlist) }
+            stopButton.setOnClickListener { onStopDownloadClick(playlist) }
             menuButton.setOnClickListener { onMenuClick(playlist, it) }
         }
     }

@@ -41,11 +41,23 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     private val _activeDownloadIds = MutableLiveData<Set<Long>>(emptySet())
     val activeDownloadIds: LiveData<Set<Long>> = _activeDownloadIds
 
+    private val downloadJobs = mutableMapOf<Long, kotlinx.coroutines.Job>()
     private val downloadQueue = mutableListOf<DownloaderPlaylist>()
     private var isProcessingQueue = false
 
     init {
         loadPlaylists()
+    }
+
+    fun stopDownload(playlistId: Long) {
+        Log.i(TAG, "Stopping download for playlist ID: $playlistId")
+        downloadJobs[playlistId]?.cancel()
+        downloadJobs.remove(playlistId)
+        
+        // Also remove from queue if it's there
+        downloadQueue.removeAll { it.id == playlistId }
+        
+        _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlistId
     }
 
     fun addPlaylist(name: String, url: String, autoUpdate: Boolean) {
@@ -180,7 +192,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         isProcessingQueue = true
         val playlist = downloadQueue.removeAt(0)
 
-        viewModelScope.launch {
+        val job = viewModelScope.launch {
             try {
                 Log.i(TAG, "Starting playlist download from queue: ${playlist.name}")
                 _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
@@ -199,14 +211,19 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
                     _playlistMessage.value = "Нет новых треков для скачивания в ${playlist.name}"
                     refreshPlaylists()
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                Log.i(TAG, "Download cancelled for playlist '${playlist.name}'")
+                _trackDownloadState.value = TrackDownloadState.Idle
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to download playlist '${playlist.name}'", e)
                 _trackDownloadState.value = TrackDownloadState.Error(e.message ?: "Unknown error")
             } finally {
+                downloadJobs.remove(playlist.id)
                 _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlist.id
                 processNextInQueue()
             }
         }
+        downloadJobs[playlist.id] = job
     }
 
     private suspend fun refreshPlaylists() {

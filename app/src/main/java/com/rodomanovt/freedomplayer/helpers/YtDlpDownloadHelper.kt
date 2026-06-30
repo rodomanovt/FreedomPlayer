@@ -37,11 +37,23 @@ object YtDlpDownloadHelper {
         context: Context,
         url: String,
         destFolder: Any? = null, // Can be File or DocumentFile
+        tag: String? = null,
         onProgress: (Float) -> Unit = {}
     ): Result<File> = withContext(Dispatchers.IO) {
         val tempDir = File(context.cacheDir, "yt_dlp_temp_${System.currentTimeMillis()}")
+        val actualTag = tag ?: "dl_${System.currentTimeMillis()}"
+        
+        // Register cancellation handler
+        val job = coroutineContext[kotlinx.coroutines.Job]
+        val registration = job?.invokeOnCompletion {
+            if (it is kotlinx.coroutines.CancellationException) {
+                Log.i(TAG, "Cancellation received for tag: $actualTag")
+                YoutubeDL.getInstance().destroyProcessById(actualTag)
+            }
+        }
+
         try {
-            Log.i(TAG, "downloadTrack called: url=$url")
+            Log.i(TAG, "downloadTrack called: url=$url, tag=$actualTag")
             tempDir.mkdirs()
 
             // Get video info to determine smart filename
@@ -49,6 +61,7 @@ object YtDlpDownloadHelper {
                 val infoRequest = YoutubeDLRequest(url.trim())
                 YoutubeDL.getInstance().getInfo(infoRequest)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.w(TAG, "Failed to get video info for smart naming", e)
                 null
             }
@@ -63,18 +76,16 @@ object YtDlpDownloadHelper {
             
             val request = YoutubeDLRequest(url.trim())
             YtDlpManager.configureAudioMp3Request(request)
-            // Use smart title without ID in filename as requested. 
-            // Fallback to %(title)s if info was not available.
             request.addOption("-o", "${tempDir.absolutePath}/$smartFileName.%(ext)s")
 
-            YoutubeDL.getInstance().execute(request) { progress, eta, line ->
+            YoutubeDL.getInstance().execute(request, actualTag) { progress, eta, line ->
                 Log.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")
                 onProgress(progress)
             }
 
             val downloadedFiles = tempDir.listFiles()
             if (downloadedFiles.isNullOrEmpty()) {
-                throw Exception("No files downloaded")
+                throw Exception("No files downloaded or process cancelled")
             }
 
             val resultFile = downloadedFiles.find { it.extension.lowercase() == "mp3" }
@@ -91,14 +102,19 @@ object YtDlpDownloadHelper {
 
             if (success) {
                 Log.i(TAG, "Download finished and file moved to destination")
-                Result.success(resultFile) // Note: returning temp file path might be confusing but it works for now
+                Result.success(resultFile)
             } else {
                 throw Exception("Failed to copy file to destination")
             }
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) {
+                Log.i(TAG, "Download cancelled: url=$url")
+                throw e
+            }
             Log.e(TAG, "Download failed: url=$url", e)
             Result.failure(e)
         } finally {
+            registration?.dispose()
             tempDir.deleteRecursively()
         }
     }

@@ -160,45 +160,55 @@ class DownloaderMusicRepository(
         var downloaded = 0
         val total = songs.size
 
-        songs.asReversed().forEach { song ->
-            Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
-            val progressText = context.getString(R.string.playlist_songs_to_download, total) + 
-                " (Загружено: $downloaded / $total)"
+        try {
+            songs.asReversed().forEach { song ->
+                Log.i(TAG, "Starting download: ${song.name} from ${song.url}")
+                val progressText = context.getString(R.string.playlist_songs_to_download, total) +
+                        " (Загружено: $downloaded / $total)"
+
+                builder.setContentText("${song.name}\n$progressText")
+                    .setProgress(total, downloaded, false)
+                notificationManager.notify(notificationId, builder.build())
+
+                val result = YtDlpDownloadHelper.downloadTrack(
+                    context, 
+                    song.url, 
+                    playlistFolder, 
+                    tag = "playlist_${playlist.id}"
+                )
+                if (result.isSuccess) {
+                    downloaded++
+                    Log.i(TAG, "Successfully downloaded: ${song.name}")
+                } else {
+                    Log.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
+                }
+            }
             
-            builder.setContentText("${song.name}\n$progressText")
-                .setProgress(total, downloaded, false)
+            builder.setContentTitle(context.getString(R.string.download_success))
+                .setContentText(context.getString(R.string.download_success_details, downloaded, total, playlist.name))
+                .setProgress(0, 0, false)
+                .setOngoing(false)
             notificationManager.notify(notificationId, builder.build())
 
-            val result = YtDlpDownloadHelper.downloadTrack(context, song.url, playlistFolder)
-            if (result.isSuccess) {
-                downloaded++
-                Log.i(TAG, "Successfully downloaded: ${song.name}")
-            } else {
-                Log.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
-            }
-        }
-
-        if (downloaded > 0) {
-            playlistFolder?.let { folder ->
-                Log.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
-                MusicRepository(context).scanAndSaveSongs(folder) { }
-            }
-        }
-        updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
-
-        val displayPath = try {
-            val root = YtDlpDownloadHelper.getDownloadDirectory(context)
-            val sanitized = playlist.name.trim().replace(Regex("[/\\\\:*?\"<>|]"), "_")
-            File(root, sanitized).absolutePath
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            Log.i(TAG, "Download job for playlist ${playlist.name} cancelled")
+            notificationManager.cancel(notificationId)
+            throw e
         } catch (e: Exception) {
-            playlist.name
+            Log.e(TAG, "Error during playlist download: ${e.message}")
+            builder.setContentTitle(context.getString(R.string.download_failed, e.message))
+                .setOngoing(false)
+                .setProgress(0, 0, false)
+            notificationManager.notify(notificationId, builder.build())
+        } finally {
+            if (downloaded > 0) {
+                playlistFolder?.let { folder ->
+                    Log.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
+                    MusicRepository(context).scanAndSaveSongs(folder) { }
+                }
+            }
+            updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
         }
-
-        builder.setContentTitle(context.getString(R.string.download_success))
-            .setContentText(context.getString(R.string.download_success_details, downloaded, total, displayPath))
-            .setProgress(0, 0, false)
-            .setOngoing(false)
-        notificationManager.notify(notificationId, builder.build())
 
         Log.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
     }

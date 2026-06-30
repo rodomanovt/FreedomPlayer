@@ -56,12 +56,28 @@
                 android:padding="8dp"
                 android:src="@drawable/baseline_file_download_24" />
 
-            <ProgressBar
-                android:id="@+id/progressBarDownload"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                android:visibility="gone" />
+            <FrameLayout
+                android:id="@+id/layoutDownloadProgress"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/progressBarDownload"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_gravity="center" />
+
+                <ImageButton
+                    android:id="@+id/buttonStopDownload"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/cancel"
+                    android:padding="12dp"
+                    android:src="@drawable/baseline_close_24"
+                    app:tint="@android:color/holo_red_dark" />
+            </FrameLayout>
         </FrameLayout>
 
         <ImageButton

@@ -12,6 +12,7 @@ import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.ActivityDownloaderBinding
 import com.rodomanovt.freedomplayer.helpers.DownloadLogger
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener{
 
@@ -31,6 +32,7 @@ class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
     private fun setupConsole() {
         binding.btnToggleConsole.setOnClickListener {
             binding.consoleContainer.visibility = View.VISIBLE
+            updateConsoleText(DownloadLogger.logs.value)
         }
 
         binding.btnCloseConsole.setOnClickListener {
@@ -38,11 +40,26 @@ class DownloaderActivity : AppCompatActivity(), NavigationView.OnNavigationItemS
         }
 
         lifecycleScope.launch {
-            DownloadLogger.logs.collect { logs ->
-                binding.consoleText.text = logs.joinToString("\n")
-                binding.consoleScroll.post {
-                    binding.consoleScroll.fullScroll(View.FOCUS_DOWN)
+            DownloadLogger.logs
+                .collect { logs ->
+                if (binding.consoleContainer.visibility == View.VISIBLE) {
+                    updateConsoleText(logs)
                 }
+            }
+        }
+    }
+
+    private var lastUpdateJob: kotlinx.coroutines.Job? = null
+    private fun updateConsoleText(logs: List<String>) {
+        lastUpdateJob?.cancel()
+        lastUpdateJob = lifecycleScope.launch {
+            // Conflate updates to avoid hammering the UI thread
+            val text = withContext(kotlinx.coroutines.Dispatchers.Default) {
+                logs.joinToString("\n")
+            }
+            binding.consoleText.text = text
+            binding.consoleScroll.post {
+                binding.consoleScroll.fullScroll(View.FOCUS_DOWN)
             }
         }
     }

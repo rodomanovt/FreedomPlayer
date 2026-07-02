@@ -162,6 +162,8 @@ class DownloaderMusicRepository(
 
         try {
             songs.asReversed().forEach { song ->
+                kotlinx.coroutines.yield()
+
                 DownloadLogger.i(TAG, "Starting download: ${song.name} from ${song.url}")
                 val progressText = context.getString(R.string.playlist_songs_to_download, total) +
                         " (Downloaded: $downloaded / $total)"
@@ -176,11 +178,16 @@ class DownloaderMusicRepository(
                     playlistFolder, 
                     tag = "playlist_${playlist.id}"
                 )
+                
                 if (result.isSuccess) {
                     downloaded++
                     DownloadLogger.i(TAG, "Successfully downloaded: ${song.name}")
                 } else {
-                    DownloadLogger.e(TAG, "Failed to download ${song.name}: ${result.exceptionOrNull()?.message}")
+                    val exception = result.exceptionOrNull()
+                    if (exception is kotlinx.coroutines.CancellationException) {
+                        throw exception
+                    }
+                    DownloadLogger.e(TAG, "Failed to download ${song.name}: ${exception?.message}")
                 }
             }
             
@@ -203,11 +210,16 @@ class DownloaderMusicRepository(
         } finally {
             if (downloaded > 0) {
                 playlistFolder?.let { folder ->
-                    DownloadLogger.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
-                    MusicRepository(context).scanAndSaveSongs(folder) { }
+                    // Indexing should be non-cancellable or at least try to finish what was downloaded
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                        DownloadLogger.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
+                        MusicRepository(context).scanAndSaveSongs(folder) { }
+                    }
                 }
             }
-            updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
+            }
         }
 
         DownloadLogger.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")

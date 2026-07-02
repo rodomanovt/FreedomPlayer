@@ -85,6 +85,11 @@ object YtDlpManager {
 
     fun configureRequest(request: YoutubeDLRequest) {
         request.addOption("--remote-components", "ejs:github")
+        // Basic anti-403 options
+        request.addOption("--no-check-certificate")
+        request.addOption("--rm-cache-dir")
+        request.addOption("--force-ipv4")
+        request.addOption("--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36")
     }
 
     fun configureAudioMp3Request(request: YoutubeDLRequest) {

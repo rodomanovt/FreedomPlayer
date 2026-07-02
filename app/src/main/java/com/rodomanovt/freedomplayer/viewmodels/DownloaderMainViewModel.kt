@@ -51,13 +51,17 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
 
     fun stopDownload(playlistId: Long) {
         DownloadLogger.i(TAG, "Stopping download for playlist ID: $playlistId")
-        downloadJobs[playlistId]?.cancel()
-        downloadJobs.remove(playlistId)
-        
-        // Also remove from queue if it's there
-        downloadQueue.removeAll { it.id == playlistId }
-        
-        _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlistId
+        val job = downloadJobs[playlistId]
+        if (job != null) {
+            job.cancel()
+            // We don't remove from _activeDownloadIds here.
+            // The job's finally block in processNextInQueue will handle it
+            // when the cancellation actually takes effect.
+        } else {
+            // If it was only in queue or already finished
+            downloadQueue.removeAll { it.id == playlistId }
+            _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlistId
+        }
     }
 
     fun addPlaylist(name: String, url: String, autoUpdate: Boolean) {

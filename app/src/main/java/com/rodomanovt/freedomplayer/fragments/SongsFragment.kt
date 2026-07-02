@@ -3,6 +3,7 @@ package com.rodomanovt.freedomplayer.fragments
 import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -13,9 +14,11 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.rodomanovt.freedomplayer.adapters.SongsAdapter
 import com.rodomanovt.freedomplayer.adapters.PlaylistHeaderAdapter
 import com.rodomanovt.freedomplayer.databinding.FragmentSongsBinding
+import com.rodomanovt.freedomplayer.helpers.SwipeGestureListener
 import com.rodomanovt.freedomplayer.viewmodels.FavoritesViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel
@@ -40,6 +43,22 @@ class SongsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        val swipeListener = object : SwipeGestureListener(requireContext()) {
+            override fun onSwipeRight() {
+                findNavController().navigateUp()
+            }
+        }
+        binding.root.setOnTouchListener(swipeListener)
+        binding.recyclerViewSongs.addOnItemTouchListener(object : RecyclerView.OnItemTouchListener {
+            override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+                swipeListener.onTouch(rv, e)
+                return false
+            }
+
+            override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {}
+            override fun onRequestDisallowInterceptTouchEvent(disallowIntercept: Boolean) {}
+        })
 
         setupUI()
         setupObservers()

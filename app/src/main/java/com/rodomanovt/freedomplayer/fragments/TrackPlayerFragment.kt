@@ -10,6 +10,7 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.FragmentTrackPlayerBinding
+import com.rodomanovt.freedomplayer.helpers.SwipeGestureListener
 import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.viewmodels.FavoritesViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
@@ -34,6 +35,12 @@ class TrackPlayerFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.root.setOnTouchListener(object : SwipeGestureListener(requireContext()) {
+            override fun onSwipeDown() {
+                findNavController().navigateUp()
+            }
+        })
 
         binding.trackCloseButton.setOnClickListener {
             findNavController().navigateUp()

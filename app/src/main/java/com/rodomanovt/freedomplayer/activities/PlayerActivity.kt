@@ -15,6 +15,7 @@ import androidx.navigation.fragment.NavHostFragment
 import com.google.android.material.navigation.NavigationView
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.databinding.ActivityPlayerBinding
+import com.rodomanovt.freedomplayer.helpers.SwipeGestureListener
 import com.rodomanovt.freedomplayer.model.Song
 import com.rodomanovt.freedomplayer.viewmodels.MediaPlayerViewModel
 import com.rodomanovt.freedomplayer.viewmodels.MusicViewModel.Companion.loadAlbumArt
@@ -47,6 +48,14 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
                 navController().navigate(R.id.action_global_trackPlayerFragment)
             }
         }
+
+        miniPlayer.playerCard.setOnTouchListener(object : SwipeGestureListener(this) {
+            override fun onSwipeUp() {
+                if (playerViewModel.currentSong.value != null) {
+                    navController().navigate(R.id.action_global_trackPlayerFragment)
+                }
+            }
+        })
 
         miniPlayer.playerPlayPause.setOnClickListener {
             if (playerViewModel.isPlaying.value == true) {

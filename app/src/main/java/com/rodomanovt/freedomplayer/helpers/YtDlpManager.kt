@@ -32,21 +32,23 @@ object YtDlpManager {
     }
 
     suspend fun ensureUpdated(context: Context) {
-        val appContext = context.applicationContext
+        DownloadPowerLock.withWakeLock(context) {
+            val appContext = context.applicationContext
 
-        val deferred = initMutex.withLock {
-            updateDeferred ?: CompletableDeferred<Unit>().also { deferred ->
-                updateDeferred = deferred
-                scope.launch {
-                    runUpdate(appContext, deferred)
+            val deferred = initMutex.withLock {
+                updateDeferred ?: CompletableDeferred<Unit>().also { deferred ->
+                    updateDeferred = deferred
+                    scope.launch {
+                        runUpdate(appContext, deferred)
+                    }
                 }
             }
-        }
 
-        if (!deferred.isCompleted) {
-            DownloadLogger.i(TAG, "Waiting for yt-dlp update to finish...")
+            if (!deferred.isCompleted) {
+                DownloadLogger.i(TAG, "Waiting for yt-dlp update to finish...")
+            }
+            deferred.await()
         }
-        deferred.await()
     }
 
     private suspend fun runUpdate(context: Context, deferred: CompletableDeferred<Unit>) {

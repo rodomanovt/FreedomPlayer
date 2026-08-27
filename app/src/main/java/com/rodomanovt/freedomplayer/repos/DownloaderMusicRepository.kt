@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.documentfile.provider.DocumentFile
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.helpers.DownloadLogger
+import com.rodomanovt.freedomplayer.helpers.DownloadPowerLock
 import com.rodomanovt.freedomplayer.helpers.DownloaderStorageHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
@@ -34,22 +35,24 @@ class DownloaderMusicRepository(
 ) {
 
     suspend fun getRemoteSongsFromPlaylist(playlist: DownloaderPlaylist): List<RemoteSong> =
-        withContext(Dispatchers.IO) {
-            val request = YoutubeDLRequest(playlist.url.trim())
-            request.addOption("--flat-playlist")
-            request.addOption("--skip-download")
-            request.addOption("--ignore-errors")
-            request.addOption("--no-warnings")
-            request.addOption("--dump-single-json")
-            YtDlpManager.configureRequest(request)
+        DownloadPowerLock.withWakeLock(context) {
+            withContext(Dispatchers.IO) {
+                val request = YoutubeDLRequest(playlist.url.trim())
+                request.addOption("--flat-playlist")
+                request.addOption("--skip-download")
+                request.addOption("--ignore-errors")
+                request.addOption("--no-warnings")
+                request.addOption("--dump-single-json")
+                YtDlpManager.configureRequest(request)
 
-            val response = YoutubeDL.getInstance().execute(request)
-            DownloadLogger.d(TAG, "yt-dlp stdout length=${response.out.length}, stderr length=${response.err.length}")
-            parseRemoteSongs(response.out).also { songs ->
-                if (songs.isEmpty()) {
-                    DownloadLogger.w(TAG, "No songs parsed from playlist.")
-                } else {
-                    DownloadLogger.i(TAG, "Parsed ${songs.size} remote songs from playlist")
+                val response = YoutubeDL.getInstance().execute(request)
+                DownloadLogger.d(TAG, "yt-dlp stdout length=${response.out.length}, stderr length=${response.err.length}")
+                parseRemoteSongs(response.out).also { songs ->
+                    if (songs.isEmpty()) {
+                        DownloadLogger.w(TAG, "No songs parsed from playlist.")
+                    } else {
+                        DownloadLogger.i(TAG, "Parsed ${songs.size} remote songs from playlist")
+                    }
                 }
             }
         }
@@ -134,95 +137,97 @@ class DownloaderMusicRepository(
         playlist: DownloaderPlaylist,
         songs: List<RemoteSong>
     ) = withContext(Dispatchers.IO) {
-        if (songs.isEmpty()) return@withContext
+        DownloadPowerLock.withWakeLock(context) {
+            if (songs.isEmpty()) return@withWakeLock
 
-        val notificationManager =
-            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val channelId = "downloader_channel"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                context.getString(R.string.downloaderText),
-                NotificationManager.IMPORTANCE_LOW
-            )
-            notificationManager.createNotificationChannel(channel)
-        }
+            val notificationManager =
+                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = "downloader_channel"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    context.getString(R.string.downloaderText),
+                    NotificationManager.IMPORTANCE_LOW
+                )
+                notificationManager.createNotificationChannel(channel)
+            }
 
-        val notificationId = playlist.id.toInt().let { if (it == 0) playlist.hashCode() else it }
-        val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.drawable.baseline_music_note_24)
-            .setContentTitle(context.getString(R.string.download_track_title) + ": " + playlist.name)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
+            val notificationId = playlist.id.toInt().let { if (it == 0) playlist.hashCode() else it }
+            val builder = NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(R.drawable.baseline_music_note_24)
+                .setContentTitle(context.getString(R.string.download_track_title) + ": " + playlist.name)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
 
-        val playlistFolder = storageHelper.getPlaylistDocumentFile(playlist.name)
+            val playlistFolder = storageHelper.getPlaylistDocumentFile(playlist.name)
 
-        var downloaded = 0
-        val total = songs.size
+            var downloaded = 0
+            val total = songs.size
 
-        try {
-            songs.asReversed().forEach { song ->
-                kotlinx.coroutines.yield()
+            try {
+                songs.asReversed().forEach { song ->
+                    kotlinx.coroutines.yield()
 
-                DownloadLogger.i(TAG, "Starting download: ${song.name} from ${song.url}")
-                val progressText = context.getString(R.string.playlist_songs_to_download, total) +
+                    DownloadLogger.i(TAG, "Starting download: ${song.name} from ${song.url}")
+                    val progressText = context.getString(R.string.playlist_songs_to_download, total) +
                         " (Downloaded: $downloaded / $total)"
 
-                builder.setContentText("${song.name}\n$progressText")
-                    .setProgress(total, downloaded, false)
+                    builder.setContentText("${song.name}\n$progressText")
+                        .setProgress(total, downloaded, false)
+                    notificationManager.notify(notificationId, builder.build())
+
+                    val result = YtDlpDownloadHelper.downloadTrack(
+                        context,
+                        song.url,
+                        playlistFolder,
+                        tag = "playlist_${playlist.id}"
+                    )
+
+                    if (result.isSuccess) {
+                        downloaded++
+                        DownloadLogger.i(TAG, "Successfully downloaded: ${song.name}")
+                    } else {
+                        val exception = result.exceptionOrNull()
+                        if (exception is kotlinx.coroutines.CancellationException) {
+                            throw exception
+                        }
+                        DownloadLogger.e(TAG, "Failed to download ${song.name}: ${exception?.message}")
+                    }
+                }
+
+                builder.setContentTitle(context.getString(R.string.download_success))
+                    .setContentText(context.getString(R.string.download_success_details, downloaded, total, playlist.name))
+                    .setProgress(0, 0, false)
+                    .setOngoing(false)
                 notificationManager.notify(notificationId, builder.build())
 
-                val result = YtDlpDownloadHelper.downloadTrack(
-                    context, 
-                    song.url, 
-                    playlistFolder, 
-                    tag = "playlist_${playlist.id}"
-                )
-                
-                if (result.isSuccess) {
-                    downloaded++
-                    DownloadLogger.i(TAG, "Successfully downloaded: ${song.name}")
-                } else {
-                    val exception = result.exceptionOrNull()
-                    if (exception is kotlinx.coroutines.CancellationException) {
-                        throw exception
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                DownloadLogger.i(TAG, "Download job for playlist ${playlist.name} cancelled")
+                notificationManager.cancel(notificationId)
+                throw e
+            } catch (e: Exception) {
+                DownloadLogger.e(TAG, "Error during playlist download: ${e.message}")
+                builder.setContentTitle(context.getString(R.string.download_failed, e.message))
+                    .setOngoing(false)
+                    .setProgress(0, 0, false)
+                notificationManager.notify(notificationId, builder.build())
+            } finally {
+                if (downloaded > 0) {
+                    playlistFolder?.let { folder ->
+                        // Indexing should be non-cancellable or at least try to finish what was downloaded
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                            DownloadLogger.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
+                            MusicRepository(context).scanAndSaveSongs(folder) { }
+                        }
                     }
-                    DownloadLogger.e(TAG, "Failed to download ${song.name}: ${exception?.message}")
+                }
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
                 }
             }
-            
-            builder.setContentTitle(context.getString(R.string.download_success))
-                .setContentText(context.getString(R.string.download_success_details, downloaded, total, playlist.name))
-                .setProgress(0, 0, false)
-                .setOngoing(false)
-            notificationManager.notify(notificationId, builder.build())
 
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            DownloadLogger.i(TAG, "Download job for playlist ${playlist.name} cancelled")
-            notificationManager.cancel(notificationId)
-            throw e
-        } catch (e: Exception) {
-            DownloadLogger.e(TAG, "Error during playlist download: ${e.message}")
-            builder.setContentTitle(context.getString(R.string.download_failed, e.message))
-                .setOngoing(false)
-                .setProgress(0, 0, false)
-            notificationManager.notify(notificationId, builder.build())
-        } finally {
-            if (downloaded > 0) {
-                playlistFolder?.let { folder ->
-                    // Indexing should be non-cancellable or at least try to finish what was downloaded
-                    kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                        DownloadLogger.i(TAG, "Triggering re-indexing for playlist: ${playlist.name}")
-                        MusicRepository(context).scanAndSaveSongs(folder) { }
-                    }
-                }
-            }
-            kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                updateLastDownloadTimestamp(playlist, playlistFolder?.uri)
-            }
+            DownloadLogger.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
         }
-
-        DownloadLogger.i(TAG, "Finished downloading playlist ${playlist.name}: $downloaded/$total success")
     }
 
     suspend fun updatePlaylistTimestamp(playlist: DownloaderPlaylist) = withContext(Dispatchers.IO) {

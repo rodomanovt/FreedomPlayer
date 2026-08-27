@@ -49,10 +49,23 @@
             android:maxLines="2"
             android:textAppearance="@style/TextAppearance.Material3.HeadlineSmall"
             android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/trackLike"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/trackCover"
             tools:text="Track title" />
+
+        <ImageButton
+            android:id="@+id/trackLike"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/likeTrack"
+            android:padding="8dp"
+            android:scaleType="centerInside"
+            android:src="@drawable/baseline_favourite_border_24"
+            app:layout_constraintBottom_toBottomOf="@id/trackTitle"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/trackTitle" />
 
         <TextView
             android:id="@+id/trackArtist"
@@ -155,15 +168,15 @@
                 android:src="@drawable/baseline_skip_next_24" />
 
             <ImageButton
-                android:id="@+id/trackLike"
+                android:id="@+id/trackRepeat"
                 android:layout_width="52dp"
                 android:layout_height="52dp"
                 android:layout_marginStart="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/likeTrack"
+                android:contentDescription="@string/repeatPlayback"
                 android:padding="12dp"
                 android:scaleType="centerInside"
-                android:src="@drawable/baseline_favourite_border_24" />
+                android:src="@drawable/baseline_repeat_24" />
         </LinearLayout>
 
         <LinearLayout

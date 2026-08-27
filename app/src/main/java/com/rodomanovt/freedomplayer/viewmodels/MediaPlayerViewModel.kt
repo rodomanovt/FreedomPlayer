@@ -31,6 +31,9 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
     private val _isShuffleEnabled = MutableLiveData(false)
     val isShuffleEnabled: LiveData<Boolean> get() = _isShuffleEnabled
 
+    private val _repeatMode = MutableLiveData(MusicPlaybackService.RepeatMode.ALL)
+    val repeatMode: LiveData<MusicPlaybackService.RepeatMode> get() = _repeatMode
+
     private var appContext: Context? = null
     private var boundService: MusicPlaybackService? = null
     private var isBound = false
@@ -79,6 +82,10 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
 
     fun toggleShuffle(context: Context) {
         submit(context) { service -> service.toggleShuffle() }
+    }
+
+    fun toggleRepeatMode(context: Context) {
+        submit(context) { service -> service.toggleRepeatMode() }
     }
 
     fun play(context: Context, song: Song) {
@@ -135,6 +142,10 @@ class MediaPlayerViewModel : ViewModel(), MusicPlaybackService.PlaybackCallback 
 
     override fun onShuffleModeChanged(enabled: Boolean) {
         _isShuffleEnabled.postValue(enabled)
+    }
+
+    override fun onRepeatModeChanged(repeatMode: MusicPlaybackService.RepeatMode) {
+        _repeatMode.postValue(repeatMode)
     }
 
     override fun onPlaybackError(message: String) {

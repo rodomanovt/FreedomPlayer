@@ -9,6 +9,7 @@ import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.helpers.DownloadLogger
+import com.rodomanovt.freedomplayer.download.DownloadForegroundService
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
 import com.rodomanovt.freedomplayer.repos.DownloaderRepository
 import kotlinx.coroutines.launch
@@ -165,6 +166,9 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     fun downloadPlaylist(playlist: DownloaderPlaylist) {
         if (_activeDownloadIds.value?.contains(playlist.id) == true) return
 
+        if (downloadQueue.isEmpty() && !isProcessingQueue) {
+            DownloadForegroundService.start(getApplication())
+        }
         downloadQueue.add(playlist)
         _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) + playlist.id
         
@@ -190,6 +194,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     private fun processNextInQueue() {
         if (downloadQueue.isEmpty()) {
             isProcessingQueue = false
+            DownloadForegroundService.stop(getApplication())
             return
         }
 

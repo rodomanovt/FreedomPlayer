@@ -66,6 +66,10 @@ class TrackPlayerFragment : Fragment() {
             playerViewModel.nextTrack(requireContext())
         }
 
+        binding.trackRepeat.setOnClickListener {
+            playerViewModel.toggleRepeatMode(requireContext())
+        }
+
         binding.trackLike.setOnClickListener {
             currentSongPath?.let { favoritesViewModel.toggleLike(it) }
         }
@@ -143,6 +147,16 @@ class TrackPlayerFragment : Fragment() {
             )
             binding.trackShuffle.contentDescription = getString(
                 if (active) R.string.shufflePlaybackEnabled else R.string.shufflePlaybackDisabled
+            )
+        }
+
+        playerViewModel.repeatMode.observe(viewLifecycleOwner) { mode ->
+            val isOne = mode == com.rodomanovt.freedomplayer.playback.MusicPlaybackService.RepeatMode.ONE
+            binding.trackRepeat.setImageResource(
+                if (isOne) R.drawable.baseline_repeat_one_24 else R.drawable.baseline_repeat_24
+            )
+            binding.trackRepeat.contentDescription = getString(
+                if (isOne) R.string.repeatModeOne else R.string.repeatModeAll
             )
         }
 

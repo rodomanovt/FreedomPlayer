@@ -47,7 +47,12 @@ class MusicPlaybackService : Service() {
         fun onPlaybackProgressChanged(position: Int)
         fun onPlaybackDurationChanged(duration: Int)
         fun onShuffleModeChanged(enabled: Boolean)
+        fun onRepeatModeChanged(repeatMode: RepeatMode)
         fun onPlaybackError(message: String)
+    }
+
+    enum class RepeatMode {
+        ALL, ONE
     }
 
     inner class LocalBinder : Binder() {
@@ -66,6 +71,7 @@ class MusicPlaybackService : Service() {
     private var currentSong: Song? = null
     private var isPlaying: Boolean = false
     private var isShuffleEnabled: Boolean = false
+    private var repeatMode: RepeatMode = RepeatMode.ALL
     private var playbackDuration: Int = 0
     private var playbackProgress: Int = 0
     private var currentArtwork: Bitmap? = null
@@ -181,6 +187,7 @@ class MusicPlaybackService : Service() {
         callback.onPlaybackProgressChanged(playbackProgress)
         callback.onPlaybackDurationChanged(playbackDuration)
         callback.onShuffleModeChanged(isShuffleEnabled)
+        callback.onRepeatModeChanged(repeatMode)
     }
 
     fun unregisterCallback(callback: PlaybackCallback) {
@@ -224,6 +231,21 @@ class MusicPlaybackService : Service() {
         setShuffleEnabled(!isShuffleEnabled)
     }
 
+    fun setRepeatMode(mode: RepeatMode) {
+        if (repeatMode == mode) return
+        repeatMode = mode
+        dispatchRepeatModeChanged()
+        updateNotification()
+    }
+
+    fun toggleRepeatMode() {
+        val nextMode = when (repeatMode) {
+            RepeatMode.ALL -> RepeatMode.ONE
+            RepeatMode.ONE -> RepeatMode.ALL
+        }
+        setRepeatMode(nextMode)
+    }
+
     fun play(song: Song) {
         scope.launch {
             startPlayback(song)
@@ -233,11 +255,21 @@ class MusicPlaybackService : Service() {
     fun nextTrack() {
         if (playbackQueue.isEmpty()) return
 
+        if (repeatMode == RepeatMode.ONE) {
+            playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            return
+        }
+
         if (currentSongIndex + 1 < playbackQueue.size) {
             currentSongIndex++
             playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
         } else {
-            stopCurrentSong()
+            if (repeatMode == RepeatMode.ALL) {
+                currentSongIndex = 0
+                playbackQueue.getOrNull(currentSongIndex)?.let { play(it) }
+            } else {
+                stopCurrentSong()
+            }
         }
     }
 
@@ -562,7 +594,7 @@ class MusicPlaybackService : Service() {
             .setShowActionsInCompactView(0, 1, 2)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.baseline_music_note_24)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(artist)
             .setSubText(if (playing) getString(R.string.notification_playback_title) else getString(R.string.notification_playback_paused))
@@ -575,7 +607,7 @@ class MusicPlaybackService : Service() {
             .addAction(R.drawable.baseline_skip_previous_24, getString(R.string.previous), previousIntent)
             .addAction(playPauseIcon, playPauseLabel, playPauseIntent)
             .addAction(R.drawable.baseline_skip_next_24, getString(R.string.next), nextIntent)
-            .addAction(R.drawable.baseline_music_note_24, getString(R.string.playerText), stopIntent)
+            .addAction(R.drawable.ic_launcher_foreground, getString(R.string.playerText), stopIntent)
             .setStyle(mediaStyle)
             .build()
     }
@@ -678,6 +710,10 @@ class MusicPlaybackService : Service() {
 
     private fun dispatchShuffleModeChanged() {
         callbacks.forEach { it.onShuffleModeChanged(isShuffleEnabled) }
+    }
+
+    private fun dispatchRepeatModeChanged() {
+        callbacks.forEach { it.onRepeatModeChanged(repeatMode) }
     }
 
     private fun getNextSong(): Song? {

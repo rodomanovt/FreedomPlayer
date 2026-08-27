@@ -13,6 +13,9 @@
     <string name="shufflePlayback">Shuffle playback</string>
     <string name="shufflePlaybackEnabled">Shuffle playback enabled</string>
     <string name="shufflePlaybackDisabled">Shuffle playback disabled</string>
+    <string name="repeatPlayback">Repeat playback</string>
+    <string name="repeatModeAll">Repeat all</string>
+    <string name="repeatModeOne">Repeat one</string>
 
     <!-- Spinners content-->
     <string name="themeSystem">System</string>

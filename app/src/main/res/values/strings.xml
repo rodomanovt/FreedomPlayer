@@ -97,6 +97,9 @@
     <string name="download_track_title">Скачать трек</string>
     <string name="track_url">Ссылка на трек</string>
     <string name="track_url_required">Введите ссылку на трек</string>
+    <string name="download_video_title">Скачать видео</string>
+    <string name="video_url">Ссылка на видео</string>
+    <string name="video_url_required">Введите ссылку на видео</string>
     <string name="ytdlp_updating">Обновление yt-dlp…</string>
     <string name="download_started">Скачивание начато…</string>
     <string name="download_success">Загрузка завершена</string>

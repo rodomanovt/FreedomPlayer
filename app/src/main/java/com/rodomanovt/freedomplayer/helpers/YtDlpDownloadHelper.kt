@@ -155,6 +155,104 @@ object YtDlpDownloadHelper {
         }
     }
 
+    suspend fun downloadVideo1080p(
+        context: Context,
+        url: String,
+        tag: String? = null,
+        onProgress: (Float) -> Unit = {}
+    ): Result<File> = DownloadPowerLock.withWakeLock(context) {
+        withContext(Dispatchers.IO) {
+            val actualTag = tag ?: "dl_${System.currentTimeMillis()}"
+            val job = coroutineContext[kotlinx.coroutines.Job]
+            val registration = job?.invokeOnCompletion {
+                if (it is kotlinx.coroutines.CancellationException) {
+                    DownloadLogger.i(TAG, "Cancellation received for tag: $actualTag")
+                    YoutubeDL.getInstance().destroyProcessById(actualTag)
+                }
+            }
+
+            var lastException: Exception? = null
+            val maxRetries = 3
+
+            try {
+                for (attempt in 1..maxRetries) {
+                    val tempDir = File(context.cacheDir, "yt_dlp_temp_${System.currentTimeMillis()}_$attempt")
+                    try {
+                        DownloadLogger.i(TAG, "downloadVideo1080p attempt $attempt/$maxRetries: url=$url, tag=$actualTag")
+                        tempDir.mkdirs()
+
+                        val request = YoutubeDLRequest(url.trim())
+                        YtDlpManager.configureVideo1080pRequest(request)
+                        request.addOption("-o", "${tempDir.absolutePath}/%(title)s.%(ext)s")
+
+                        // Special handling for 403 retries
+                        if (attempt > 1 && lastException?.message?.contains("403") == true) {
+                            DownloadLogger.i(TAG, "Attempting 403 fix: adding ios player client")
+                            request.addOption("--extractor-args", "youtube:player_client=ios,web")
+                        }
+
+                        YoutubeDL.getInstance().execute(request, actualTag) { progress, eta, line ->
+                            DownloadLogger.d(TAG, "Progress: ${progress.toInt()}%, eta=${eta}s, line=$line")
+                            onProgress(progress)
+                        }
+
+                        val downloadedFiles = tempDir.listFiles()
+                        if (downloadedFiles.isNullOrEmpty()) {
+                            throw Exception("No files downloaded or process cancelled")
+                        }
+
+                        val resultFile = downloadedFiles.firstOrNull { it.extension.lowercase() == "mp4" }
+                            ?: downloadedFiles.first()
+                        val destinationFile = File(
+                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                            resultFile.name
+                        )
+                        val success = copyToFile(resultFile, destinationFile)
+
+                        if (success) {
+                            DownloadLogger.i(TAG, "Download finished and file moved to destination")
+                            return@withContext Result.success(destinationFile)
+                        } else {
+                            throw Exception("Failed to copy file to destination")
+                        }
+                    } catch (e: Exception) {
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+
+                        lastException = e
+                        val errorMessage = e.message ?: ""
+                        val isRetryableError = errorMessage.contains("No address associated with hostname") ||
+                            errorMessage.contains("Unable to download webpage") ||
+                            errorMessage.contains("Connection refused") ||
+                            errorMessage.contains("Timed out") ||
+                            errorMessage.contains("403") ||
+                            errorMessage.contains("Forbidden")
+
+                        if (isRetryableError && attempt < maxRetries) {
+                            val delayMs = 2000L * attempt
+                            DownloadLogger.w(TAG, "Retryable error on attempt $attempt: ${errorMessage.take(100)}. Retrying in ${delayMs}ms...")
+                            kotlinx.coroutines.delay(delayMs)
+                            continue
+                        } else {
+                            throw e
+                        }
+                    } finally {
+                        tempDir.deleteRecursively()
+                    }
+                }
+                Result.failure(lastException ?: Exception("Unknown error"))
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    DownloadLogger.i(TAG, "Download cancelled: url=$url")
+                    throw e
+                }
+                DownloadLogger.e(TAG, "Download failed after all attempts: url=$url", e)
+                Result.failure(e)
+            } finally {
+                registration?.dispose()
+            }
+        }
+    }
+
     private fun copyToFile(source: File, destination: File): Boolean {
         return try {
             destination.parentFile?.mkdirs()

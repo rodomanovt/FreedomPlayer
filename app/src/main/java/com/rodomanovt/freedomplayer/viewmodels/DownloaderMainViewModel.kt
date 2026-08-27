@@ -131,6 +131,23 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    fun downloadVideo(url: String) {
+        viewModelScope.launch {
+            DownloadLogger.i(TAG, "downloadVideo requested: $url")
+            _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
+            YtDlpManager.ensureUpdated(getApplication())
+            _trackDownloadState.value = TrackDownloadState.InProgress
+            val result = YtDlpDownloadHelper.downloadVideo1080p(getApplication(), url)
+            _trackDownloadState.value = if (result.isSuccess) {
+                TrackDownloadState.Success(result.getOrNull()?.absolutePath)
+            } else {
+                TrackDownloadState.Error(
+                    result.exceptionOrNull()?.message ?: "Unknown error"
+                )
+            }
+        }
+    }
+
     fun resetTrackDownloadState() {
         _trackDownloadState.value = TrackDownloadState.Idle
     }

@@ -64,7 +64,7 @@ class DownloaderMainFragment : Fragment() {
         }
 
         binding.downloadTrackButton.setOnClickListener {
-            showDownloadTrackDialog()
+            showDownloadVideoDialog()
         }
 
         viewModel.playlists.observe(viewLifecycleOwner) { playlists ->
@@ -112,11 +112,11 @@ class DownloaderMainFragment : Fragment() {
         }
     }
 
-    private fun showDownloadTrackDialog() {
+    private fun showDownloadVideoDialog() {
         val dialogBinding = DialogDownloadTrackBinding.inflate(layoutInflater)
 
         MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.download_track_title)
+            .setTitle(R.string.download_video_title)
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.download_playlist, null)
             .setNegativeButton(R.string.cancel) { dialog, _ -> dialog.dismiss() }
@@ -126,11 +126,11 @@ class DownloaderMainFragment : Fragment() {
                     getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                         val url = dialogBinding.editTextTrackUrl.text?.toString().orEmpty()
                         if (url.isBlank()) {
-                            ToastLog.show(requireContext(), R.string.track_url_required, tag = LOG_TAG)
+                            ToastLog.show(requireContext(), R.string.video_url_required, tag = LOG_TAG)
                             return@setOnClickListener
                         }
 
-                        viewModel.downloadTrack(url)
+                        viewModel.downloadVideo(url)
                         dismiss()
                     }
                 }

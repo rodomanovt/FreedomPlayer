@@ -103,4 +103,12 @@ object YtDlpManager {
         // Write the original URL to the comment field explicitly to ensure we can find it
         request.addOption("--parse-metadata", "webpage_url:%(comment)s")
     }
+
+    fun configureVideo1080pRequest(request: YoutubeDLRequest) {
+        configureRequest(request)
+        request.addOption("--no-playlist")
+        request.addOption("-f", "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best")
+        request.addOption("--merge-output-format", "mp4")
+        request.addOption("--embed-metadata")
+    }
 }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     private val repository = MusicRepository(app)
@@ -74,32 +75,20 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                         _songs.value = songsFromDb
                         if (needsMetadataRefresh(songsFromDb)) {
                             viewModelScope.launch {
-                                val enrichedSongs = repository.enrichSongsMetadata(folder, songsFromDb) { indexedSongs ->
-                                    viewModelScope.launch(Dispatchers.Main.immediate) {
-                                        _songs.value = indexedSongs
-                                    }
-                                }
+                                val enrichedSongs = repository.enrichSongsMetadata(folder, songsFromDb) { }
                                 _songs.value = enrichedSongs
                                 _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
                             }
                         }
                     } else {
                         _songs.value = if (forceRefresh) songsFromDb else emptyList()
-                        val scannedSongs = repository.scanAndSaveSongs(folder) { indexedSongs ->
-                            viewModelScope.launch(Dispatchers.Main.immediate) {
-                                _songs.value = indexedSongs
-                            }
-                        }
+                        val scannedSongs = repository.scanAndSaveSongs(folder) { }
                         _songs.value = scannedSongs
                         _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
                         
                         if (scannedSongs.isNotEmpty()) {
                             viewModelScope.launch {
-                                val enrichedSongs = repository.enrichSongsMetadata(folder, scannedSongs) { indexedSongs ->
-                                    viewModelScope.launch(Dispatchers.Main.immediate) {
-                                        _songs.value = indexedSongs
-                                    }
-                                }
+                                val enrichedSongs = repository.enrichSongsMetadata(folder, scannedSongs) { }
                                 _songs.value = enrichedSongs
                                 _currentPlaylist.value = repository.getPlaylistByUri(folderUri)
                             }
@@ -163,7 +152,18 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        private data class AlbumArt(val bytes: ByteArray?)
+        private val albumArtCache = ConcurrentHashMap<String, AlbumArt>()
+
         fun loadAlbumArt(song: Song, imageView: ImageView) {
+            if (imageView.tag == song.songPath) return
+            imageView.tag = song.songPath
+
+            albumArtCache[song.songPath]?.let { artwork ->
+                applyAlbumArt(imageView, artwork.bytes)
+                return
+            }
+
             CoroutineScope(Dispatchers.IO).launch {
                 val retriever = MediaMetadataRetriever()
                 try {
@@ -194,24 +194,34 @@ class MusicViewModel(val app: Application) : AndroidViewModel(app) {
                     }
 
                     val artBytes = retriever.embeddedPicture
+                    albumArtCache[song.songPath] = AlbumArt(artBytes)
                     withContext(Dispatchers.Main) {
-                        if (artBytes != null) {
-                            Glide.with(imageView.context)
-                                .load(artBytes)
-                                .placeholder(R.drawable.baseline_music_note_24)
-                                .into(imageView)
-                        } else {
-                            imageView.setImageResource(R.drawable.baseline_music_note_24)
+                        if (imageView.tag == song.songPath) {
+                            applyAlbumArt(imageView, artBytes)
                         }
                     }
                 } catch (e: Exception) {
                     Log.e("MusicPlayer", "Error loading album art", e)
                     withContext(Dispatchers.Main) {
-                        imageView.setImageResource(R.drawable.baseline_music_note_24)
+                        if (imageView.tag == song.songPath) {
+                            applyAlbumArt(imageView, null)
+                        }
                     }
                 } finally {
                     retriever.release()
                 }
+            }
+        }
+
+        private fun applyAlbumArt(imageView: ImageView, bytes: ByteArray?) {
+            if (bytes != null) {
+                Glide.with(imageView)
+                    .load(bytes)
+                    .placeholder(R.drawable.baseline_music_note_24)
+                    .dontAnimate()
+                    .into(imageView)
+            } else {
+                imageView.setImageResource(R.drawable.baseline_music_note_24)
             }
         }
     }

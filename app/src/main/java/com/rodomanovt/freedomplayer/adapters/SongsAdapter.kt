@@ -27,6 +27,7 @@ class SongsAdapter(
 ) : ListAdapter<Song, SongsAdapter.ViewHolder>(SongDiffCallback) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val previewCache = ConcurrentHashMap<String, SongPreview>()
+    private val loadingPreviews = ConcurrentHashMap.newKeySet<String>()
     private var likedSongPaths: Set<String> = emptySet()
 
     fun updateLikedSongs(paths: Set<String>) {
@@ -46,7 +47,11 @@ class SongsAdapter(
             titleView.text = song.title
             artistView.text = song.artist.ifBlank { "Неизвестный исполнитель" }
             durationView.text = if (song.duration > 0) formatDuration(song.duration) else "--:--"
-            albumArtView.setImageResource(R.drawable.baseline_music_note_24)
+            if (albumArtView.tag != song.songPath) {
+                Glide.with(albumArtView).clear(albumArtView)
+                albumArtView.tag = song.songPath
+                albumArtView.setImageResource(R.drawable.baseline_music_note_24)
+            }
             likeView.visibility = if (isLiked) View.VISIBLE else View.GONE
             itemView.tag = song.songPath
 
@@ -87,10 +92,16 @@ class SongsAdapter(
             return
         }
 
+        if (!loadingPreviews.add(song.songPath)) return
+
         scope.launch {
-            val preview = withContext(Dispatchers.IO) { readPreview(holder.itemView.context, song.songPath) }
-            previewCache[song.songPath] = preview
-            applyPreview(holder, song.songPath, preview)
+            try {
+                val preview = withContext(Dispatchers.IO) { readPreview(holder.itemView.context, song.songPath) }
+                previewCache[song.songPath] = preview
+                applyPreview(holder, song.songPath, preview)
+            } finally {
+                loadingPreviews.remove(song.songPath)
+            }
         }
     }
 
@@ -113,6 +124,7 @@ class SongsAdapter(
             Glide.with(holder.itemView.context)
                 .load(artBytes)
                 .placeholder(R.drawable.baseline_music_note_24)
+                .dontAnimate()
                 .into(albumArtView)
         }
     }

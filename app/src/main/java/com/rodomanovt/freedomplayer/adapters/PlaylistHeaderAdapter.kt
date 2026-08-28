@@ -32,6 +32,7 @@ class PlaylistHeaderAdapter(
 ) : RecyclerView.Adapter<PlaylistHeaderAdapter.ViewHolder>() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val artworkCache = ConcurrentHashMap<String, SongArtwork>()
+    private val loadingArtwork = ConcurrentHashMap.newKeySet<String>()
     private val dateFormat = SimpleDateFormat("Обновлено dd.MM.yy HH:mm", Locale.getDefault())
     private var playlistName: String = ""
     private var playlist: Playlist? = null
@@ -104,19 +105,24 @@ class PlaylistHeaderAdapter(
             shuffleButton.setOnClickListener { onShufflePlayClick(songs) }
 
             val coverViews = listOf(coverTopLeft, coverTopRight, coverBottomLeft, coverBottomRight)
-            coverViews.forEach { view ->
-                view.tag = null
-                view.setImageResource(R.drawable.baseline_queue_music_24)
-            }
-
-            songs.take(4).forEachIndexed { index, song ->
-                bindCover(coverViews[index], song.songPath)
+            coverViews.forEachIndexed { index, view ->
+                val songPath = songs.getOrNull(index)?.songPath
+                if (songPath != null) {
+                    bindCover(view, songPath)
+                } else if (view.tag != null) {
+                    Glide.with(view).clear(view)
+                    view.tag = null
+                    view.setImageResource(R.drawable.baseline_queue_music_24)
+                }
             }
         }
 
         private fun bindCover(imageView: ImageView, songPath: String) {
-            imageView.tag = songPath
-            imageView.setImageResource(R.drawable.baseline_queue_music_24)
+            if (imageView.tag != songPath) {
+                Glide.with(imageView).clear(imageView)
+                imageView.tag = songPath
+                imageView.setImageResource(R.drawable.baseline_queue_music_24)
+            }
 
             val cachedArtwork = artworkCache[songPath]
             if (cachedArtwork != null) {
@@ -124,10 +130,16 @@ class PlaylistHeaderAdapter(
                 return
             }
 
+            if (!loadingArtwork.add(songPath)) return
+
             scope.launch {
-                val artwork = withContext(Dispatchers.IO) { readArtwork(itemView.context, songPath) }
-                artworkCache[songPath] = artwork
-                applyArtwork(imageView, songPath, artwork)
+                try {
+                    val artwork = withContext(Dispatchers.IO) { readArtwork(itemView.context, songPath) }
+                    artworkCache[songPath] = artwork
+                    applyArtwork(imageView, songPath, artwork)
+                } finally {
+                    loadingArtwork.remove(songPath)
+                }
             }
         }
 
@@ -140,6 +152,7 @@ class PlaylistHeaderAdapter(
                     .load(bytes)
                     .centerCrop()
                     .placeholder(R.drawable.baseline_queue_music_24)
+                    .dontAnimate()
                     .into(imageView)
             } else {
                 imageView.setImageResource(R.drawable.baseline_queue_music_24)

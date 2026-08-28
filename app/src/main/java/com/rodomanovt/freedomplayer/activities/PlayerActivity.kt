@@ -36,6 +36,9 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
         setContentView(binding.root)
 
         binding.navView.setNavigationItemSelectedListener(this)
+        // Reconnect to the playback service so its current state is restored
+        // when a new PlayerActivity is opened after switching activities.
+        playerViewModel.connect(this)
         setupMiniPlayer()
         requestNotificationPermissionIfNeeded()
     }
@@ -43,17 +46,14 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
     private fun setupMiniPlayer() {
         val miniPlayer = binding.miniPlayer
 
-        miniPlayer.playerCard.setOnClickListener {
-            if (playerViewModel.currentSong.value != null) {
-                navController().navigate(R.id.action_global_trackPlayerFragment)
+        miniPlayer.playerCard.setOnTouchListener(object : SwipeGestureListener(this@PlayerActivity) {
+            override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
+                openTrackPlayer()
+                return true
             }
-        }
 
-        miniPlayer.playerCard.setOnTouchListener(object : SwipeGestureListener(this) {
             override fun onSwipeUp() {
-                if (playerViewModel.currentSong.value != null) {
-                    navController().navigate(R.id.action_global_trackPlayerFragment)
-                }
+                openTrackPlayer()
             }
         })
 
@@ -113,6 +113,12 @@ class PlayerActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelec
         miniPlayer.playerTitle.text = song.title
         miniPlayer.playerArtist.text = song.artist
         loadAlbumArt(song, miniPlayer.playerAlbumArt)
+    }
+
+    private fun openTrackPlayer() {
+        if (playerViewModel.currentSong.value != null && !isOnTrackPlayerScreen) {
+            navController().navigate(R.id.action_global_trackPlayerFragment)
+        }
     }
 
     private fun navController() =

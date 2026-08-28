@@ -9,10 +9,11 @@ import com.rodomanovt.freedomplayer.helpers.YtDlpDownloadHelper
 import com.rodomanovt.freedomplayer.helpers.YtDlpManager
 import com.rodomanovt.freedomplayer.R
 import com.rodomanovt.freedomplayer.helpers.DownloadLogger
-import com.rodomanovt.freedomplayer.download.DownloadForegroundService
+import com.rodomanovt.freedomplayer.download.PlaylistDownloadManager
 import com.rodomanovt.freedomplayer.model.DownloaderPlaylist
 import com.rodomanovt.freedomplayer.repos.DownloaderRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collect
 
 sealed class TrackDownloadState {
     data object Idle : TrackDownloadState()
@@ -39,30 +40,29 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     private val _playlistMessage = MutableLiveData<String?>()
     val playlistMessage: LiveData<String?> = _playlistMessage
 
-    private val _activeDownloadIds = MutableLiveData<Set<Long>>(emptySet())
+    private val downloadManager = PlaylistDownloadManager.get(application)
+    private val _activeDownloadIds = MutableLiveData<Set<Long>>(downloadManager.activeDownloadIds.value)
     val activeDownloadIds: LiveData<Set<Long>> = _activeDownloadIds
-
-    private val downloadJobs = mutableMapOf<Long, kotlinx.coroutines.Job>()
-    private val downloadQueue = mutableListOf<DownloaderPlaylist>()
-    private var isProcessingQueue = false
 
     init {
         loadPlaylists()
+        viewModelScope.launch {
+            downloadManager.activeDownloadIds.collect { _activeDownloadIds.postValue(it) }
+        }
+        viewModelScope.launch {
+            downloadManager.trackDownloadState.collect { _trackDownloadState.postValue(it) }
+        }
+        viewModelScope.launch {
+            downloadManager.playlistMessages.collect { _playlistMessage.postValue(it) }
+        }
+        viewModelScope.launch {
+            downloadManager.playlistRefreshes.collect { refreshPlaylists() }
+        }
     }
 
     fun stopDownload(playlistId: Long) {
         DownloadLogger.i(TAG, "Stopping download for playlist ID: $playlistId")
-        val job = downloadJobs[playlistId]
-        if (job != null) {
-            job.cancel()
-            // We don't remove from _activeDownloadIds here.
-            // The job's finally block in processNextInQueue will handle it
-            // when the cancellation actually takes effect.
-        } else {
-            // If it was only in queue or already finished
-            downloadQueue.removeAll { it.id == playlistId }
-            _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlistId
-        }
+        downloadManager.stop(playlistId)
     }
 
     fun addPlaylist(name: String, url: String, autoUpdate: Boolean) {
@@ -181,17 +181,7 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun downloadPlaylist(playlist: DownloaderPlaylist) {
-        if (_activeDownloadIds.value?.contains(playlist.id) == true) return
-
-        if (downloadQueue.isEmpty() && !isProcessingQueue) {
-            DownloadForegroundService.start(getApplication())
-        }
-        downloadQueue.add(playlist)
-        _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) + playlist.id
-        
-        if (!isProcessingQueue) {
-            processNextInQueue()
-        }
+        downloadManager.download(playlist)
     }
 
     fun downloadAllPlaylists() {
@@ -206,50 +196,6 @@ class DownloaderMainViewModel(application: Application) : AndroidViewModel(appli
         playlistsToDownload.forEach { playlist ->
             downloadPlaylist(playlist)
         }
-    }
-
-    private fun processNextInQueue() {
-        if (downloadQueue.isEmpty()) {
-            isProcessingQueue = false
-            DownloadForegroundService.stop(getApplication())
-            return
-        }
-
-        isProcessingQueue = true
-        val playlist = downloadQueue.removeAt(0)
-
-        val job = viewModelScope.launch {
-            try {
-                DownloadLogger.i(TAG, "Starting playlist download from queue: ${playlist.name}")
-                _trackDownloadState.value = TrackDownloadState.UpdatingYtDlp
-                YtDlpManager.ensureUpdated(getApplication())
-
-                _trackDownloadState.value = TrackDownloadState.InProgress
-                val songs = repository.getSongsToDownload(playlist)
-
-                if (songs.isNotEmpty()) {
-                    repository.downloadSongs(playlist, songs)
-                    _trackDownloadState.value = TrackDownloadState.Success()
-                    refreshPlaylists()
-                } else {
-                    repository.updatePlaylistTimestamp(playlist)
-                    _trackDownloadState.value = TrackDownloadState.Idle
-                    _playlistMessage.value = "No new tracks to download in ${playlist.name}"
-                    refreshPlaylists()
-                }
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                DownloadLogger.i(TAG, "Download cancelled for playlist '${playlist.name}'")
-                _trackDownloadState.value = TrackDownloadState.Idle
-            } catch (e: Exception) {
-                DownloadLogger.e(TAG, "Failed to download playlist '${playlist.name}'", e)
-                _trackDownloadState.value = TrackDownloadState.Error(e.message ?: "Unknown error")
-            } finally {
-                downloadJobs.remove(playlist.id)
-                _activeDownloadIds.value = (_activeDownloadIds.value ?: emptySet()) - playlist.id
-                processNextInQueue()
-            }
-        }
-        downloadJobs[playlist.id] = job
     }
 
     private suspend fun refreshPlaylists() {
